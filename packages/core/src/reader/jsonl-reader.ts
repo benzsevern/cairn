@@ -9,10 +9,14 @@ function summarize(text: string): string {
   return one.length > MAX_TOOL_SUMMARY ? one.slice(0, MAX_TOOL_SUMMARY - 1) + '…' : one;
 }
 
+function withTs<T extends object>(obj: T, timestamp: string | undefined): T & { timestamp?: string } {
+  return timestamp === undefined ? obj : { ...obj, timestamp };
+}
+
 function expandUserEvent(line: { message: { content: unknown } }, index: number, timestamp: string | undefined): TranscriptEvent[] {
   const { content } = line.message;
   if (typeof content === 'string') {
-    return [{ kind: 'user', index, timestamp, text: content }];
+    return [withTs({ kind: 'user' as TranscriptEventKind, index, text: content }, timestamp)];
   }
   if (Array.isArray(content)) {
     return content.map((block, i) => {
@@ -20,40 +24,37 @@ function expandUserEvent(line: { message: { content: unknown } }, index: number,
         const raw = typeof (block as { content: unknown }).content === 'string'
           ? ((block as { content: string }).content)
           : JSON.stringify((block as { content: unknown }).content);
-        return {
+        return withTs({
           kind: 'tool_result' as TranscriptEventKind,
           index: index + i,
-          timestamp,
           text: summarize(raw),
           toolSummary: summarize(raw),
           strippedSize: raw.length,
-        };
+        }, timestamp);
       }
-      return { kind: 'user' as TranscriptEventKind, index: index + i, timestamp, text: String(block) };
+      return withTs({ kind: 'user' as TranscriptEventKind, index: index + i, text: String(block) }, timestamp);
     });
   }
-  return [{ kind: 'user', index, timestamp, text: '' }];
+  return [withTs({ kind: 'user' as TranscriptEventKind, index, text: '' }, timestamp)];
 }
 
 function expandAssistantEvent(line: { message: { content: Array<{ type: string; text?: string; name?: string; input?: unknown }> } }, index: number, timestamp: string | undefined): TranscriptEvent[] {
   return line.message.content.map((block, i) => {
     if (block.type === 'tool_use') {
       const argSummary = summarize(JSON.stringify(block.input ?? {}));
-      return {
+      return withTs({
         kind: 'tool_use' as TranscriptEventKind,
         index: index + i,
-        timestamp,
         text: block.name ?? '',
         toolName: block.name,
         toolSummary: argSummary,
-      };
+      }, timestamp);
     }
-    return {
+    return withTs({
       kind: 'assistant' as TranscriptEventKind,
       index: index + i,
-      timestamp,
       text: block.text ?? '',
-    };
+    }, timestamp);
   });
 }
 
@@ -80,12 +81,11 @@ export async function readTranscript(path: string): Promise<TranscriptEvent[]> {
       out.push(...expanded);
       index += expanded.length;
     } else if (data.type === 'system') {
-      out.push({
-        kind: 'system',
+      out.push(withTs({
+        kind: 'system' as TranscriptEventKind,
         index,
-        timestamp: data.timestamp,
         text: data.content ?? data.subtype ?? '',
-      });
+      }, data.timestamp));
       index += 1;
     }
   }
