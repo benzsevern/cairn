@@ -1,0 +1,2 @@
+{"type":"user","timestamp":"2026-04-20T10:00:00Z","message":{"role":"user","content":"hi"}}
+{"type":"totally_unknown_kind","payload":{}}

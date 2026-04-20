@@ -53,3 +53,21 @@ describe('readTranscript — tool events', () => {
     }
   });
 });
+
+describe('readTranscript — rejection', () => {
+  it('throws loudly on unrecognized event types', async () => {
+    const path = resolve(here, '../fixtures/transcripts/malformed.jsonl');
+    await expect(readTranscript(path)).rejects.toThrow(/Unrecognized transcript event/);
+  });
+
+  it('throws on invalid JSON lines', async () => {
+    const tmp = resolve(here, '../fixtures/transcripts/invalid-line.jsonl');
+    const { writeFile, unlink } = await import('node:fs/promises');
+    await writeFile(tmp, 'not-json\n', 'utf8');
+    try {
+      await expect(readTranscript(tmp)).rejects.toThrow();
+    } finally {
+      await unlink(tmp);
+    }
+  });
+});
