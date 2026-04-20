@@ -24,3 +24,32 @@ describe('readTranscript — happy path', () => {
     expect(events[0]?.timestamp).toBe('2026-04-20T10:00:00Z');
   });
 });
+
+describe('readTranscript — tool events', () => {
+  it('emits tool_use events with tool name', async () => {
+    const path = resolve(here, '../fixtures/transcripts/tool-use.jsonl');
+    const events = await readTranscript(path);
+    const toolUses = events.filter((e) => e.kind === 'tool_use');
+    expect(toolUses).toHaveLength(1);
+    expect(toolUses[0]?.toolName).toBe('Read');
+    expect(toolUses[0]?.text).toBe('Read');
+    expect(toolUses[0]?.toolSummary).toContain('src/app.ts');
+  });
+
+  it('emits tool_result events and records strippedSize', async () => {
+    const path = resolve(here, '../fixtures/transcripts/tool-use.jsonl');
+    const events = await readTranscript(path);
+    const results = events.filter((e) => e.kind === 'tool_result');
+    expect(results).toHaveLength(1);
+    expect(results[0]?.strippedSize).toBeGreaterThan(0);
+  });
+
+  it('assigns monotonically increasing indices', async () => {
+    const path = resolve(here, '../fixtures/transcripts/tool-use.jsonl');
+    const events = await readTranscript(path);
+    const indices = events.map((e) => e.index);
+    for (let i = 1; i < indices.length; i++) {
+      expect(indices[i]).toBeGreaterThan(indices[i - 1]!);
+    }
+  });
+});
