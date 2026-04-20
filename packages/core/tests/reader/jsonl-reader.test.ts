@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readTranscript } from '../../src/reader/index.js';
+import { readTranscript, MalformedTranscriptError } from '../../src/reader/index.js';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -58,6 +58,22 @@ describe('readTranscript — rejection', () => {
   it('throws loudly on unrecognized event types', async () => {
     const path = resolve(here, '../fixtures/transcripts/malformed.jsonl');
     await expect(readTranscript(path)).rejects.toThrow(/Unrecognized transcript event/);
+  });
+
+  it('throws MalformedTranscriptError with lineIndex and cause on unrecognized events', async () => {
+    const path = resolve(here, '../fixtures/transcripts/malformed.jsonl');
+    await expect(readTranscript(path)).rejects.toMatchObject({
+      name: 'MalformedTranscriptError',
+    });
+    await expect(readTranscript(path)).rejects.toBeInstanceOf(MalformedTranscriptError);
+    try {
+      await readTranscript(path);
+    } catch (err) {
+      expect(err).toBeInstanceOf(MalformedTranscriptError);
+      const e = err as MalformedTranscriptError;
+      expect(typeof e.lineIndex).toBe('number');
+      expect(e.cause).toBeDefined();
+    }
   });
 
   it('throws on invalid JSON lines', async () => {

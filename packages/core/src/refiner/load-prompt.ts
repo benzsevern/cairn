@@ -7,6 +7,15 @@ import { overridePromptPath } from '../paths.js';
 
 export const SHIPPED_REFINER_VERSION = 'v1.0.0';
 
+export class RefinerPromptNotFoundError extends Error {
+  readonly searchedPaths: string[];
+  constructor(message: string, searchedPaths: string[]) {
+    super(message);
+    this.name = 'RefinerPromptNotFoundError';
+    this.searchedPaths = searchedPaths;
+  }
+}
+
 /**
  * Locate the `@fos/core` package root by walking upward from the current
  * module's directory until a `package.json` with `name: '@fos/core'` is found.
@@ -21,9 +30,11 @@ export const SHIPPED_REFINER_VERSION = 'v1.0.0';
  */
 function findCorePackageRoot(startDir: string): string {
   let dir = startDir;
+  const searched: string[] = [];
   const { root } = parsePath(dir);
   while (true) {
     const candidate = resolve(dir, 'package.json');
+    searched.push(candidate);
     if (existsSync(candidate)) {
       try {
         const pkg = JSON.parse(readFileSync(candidate, 'utf8')) as { name?: string };
@@ -35,8 +46,9 @@ function findCorePackageRoot(startDir: string): string {
       }
     }
     if (dir === root) {
-      throw new Error(
+      throw new RefinerPromptNotFoundError(
         `Unable to locate @fos/core package root starting from ${startDir}`,
+        searched,
       );
     }
     dir = dirname(dir);

@@ -1,1 +1,1 @@
-export { renderGraphHtml } from './render-html.js';
+export { renderGraphHtml, ViewerTemplateNotFoundError } from './render-html.js';

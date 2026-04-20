@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { renderGraphHtml } from '../../src/viewer/render-html.js';
+import { renderGraphHtml, ViewerTemplateNotFoundError } from '../../src/viewer/render-html.js';
 import { graphHtmlPath } from '../../src/paths.js';
 import type { GraphJson } from '../../src/deriver/graph-json.js';
 
@@ -61,6 +61,13 @@ describe('renderGraphHtml', () => {
     const payload = html.slice(afterOpen, close);
     expect(payload).not.toMatch(/<\/script>/i);
     expect(payload).toContain('<\\/script>');
+  });
+
+  it('ViewerTemplateNotFoundError carries name and searchedPaths', () => {
+    const err = new ViewerTemplateNotFoundError('nope', ['/x/template.html', '/y/template.html']);
+    expect(err).toBeInstanceOf(Error);
+    expect(err.name).toBe('ViewerTemplateNotFoundError');
+    expect(err.searchedPaths).toEqual(['/x/template.html', '/y/template.html']);
   });
 
   it('produces valid HTML with zero nodes', async () => {

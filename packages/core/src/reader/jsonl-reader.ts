@@ -2,6 +2,17 @@ import { readFile } from 'node:fs/promises';
 import { TranscriptLineSchema } from './event-schema.js';
 import type { TranscriptEvent, TranscriptEventKind } from '../types.js';
 
+export class MalformedTranscriptError extends Error {
+  readonly lineIndex: number;
+  readonly cause: unknown;
+  constructor(message: string, lineIndex: number, cause: unknown) {
+    super(message);
+    this.name = 'MalformedTranscriptError';
+    this.lineIndex = lineIndex;
+    this.cause = cause;
+  }
+}
+
 const MAX_TOOL_SUMMARY = 120;
 
 function summarize(text: string): string {
@@ -68,7 +79,11 @@ export async function readTranscript(path: string): Promise<TranscriptEvent[]> {
     const json = JSON.parse(line) as unknown;
     const parsed = TranscriptLineSchema.safeParse(json);
     if (!parsed.success) {
-      throw new Error(`Unrecognized transcript event at line ${index + 1}: ${parsed.error.message}`);
+      throw new MalformedTranscriptError(
+        `Unrecognized transcript event at line ${index + 1}: ${parsed.error.message}`,
+        index,
+        parsed.error,
+      );
     }
     const data = parsed.data;
 

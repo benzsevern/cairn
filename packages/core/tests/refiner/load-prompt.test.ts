@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { loadRefinerPrompt, SHIPPED_REFINER_VERSION } from '../../src/refiner/load-prompt.js';
+import { loadRefinerPrompt, SHIPPED_REFINER_VERSION, RefinerPromptNotFoundError } from '../../src/refiner/load-prompt.js';
 import { fosDir } from '../../src/paths.js';
 
 describe('loadRefinerPrompt', () => {
@@ -22,6 +22,13 @@ describe('loadRefinerPrompt', () => {
     expect(loaded.version).toBe(SHIPPED_REFINER_VERSION);
     expect(loaded.text).toContain('refiner');
     expect(loaded.hash).toMatch(/^sha256:[a-f0-9]{64}$/);
+  });
+
+  it('RefinerPromptNotFoundError carries name and searchedPaths', () => {
+    const err = new RefinerPromptNotFoundError('no prompt', ['/a/package.json', '/b/package.json']);
+    expect(err).toBeInstanceOf(Error);
+    expect(err.name).toBe('RefinerPromptNotFoundError');
+    expect(err.searchedPaths).toEqual(['/a/package.json', '/b/package.json']);
   });
 
   it('honors a .fos/refiner-prompt.md override', async () => {

@@ -6,5 +6,5 @@ export { invokeClaude, ClaudeInvokeError } from './invoke.js';
 export type { Runner, InvokeResult, InvokeClaudeArgs } from './invoke.js';
 export { refineWithRetry, RefinerFailure } from './retry.js';
 export type { InvokeFn, AttemptRecord, RefineWithRetryArgs } from './retry.js';
-export { loadRefinerPrompt, SHIPPED_REFINER_VERSION } from './load-prompt.js';
+export { loadRefinerPrompt, SHIPPED_REFINER_VERSION, RefinerPromptNotFoundError } from './load-prompt.js';
 export type { LoadedPrompt } from './load-prompt.js';

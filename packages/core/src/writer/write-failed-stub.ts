@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile, rename } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { failedStubPath } from '../paths.js';
 
@@ -23,6 +23,8 @@ export async function writeFailedStub(
     attempts: input.attempts,
     last_raw: input.lastRaw,
   };
-  await writeFile(target, JSON.stringify(payload, null, 2), 'utf8');
+  const tmp = `${target}.tmp`;
+  await writeFile(tmp, JSON.stringify(payload, null, 2), 'utf8');
+  await rename(tmp, target);
   return target;
 }

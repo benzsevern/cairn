@@ -6,6 +6,15 @@ import type { GraphJson } from '../deriver/graph-json.js';
 
 const PLACEHOLDER = '<!-- FOS_GRAPH_JSON_PLACEHOLDER -->';
 
+export class ViewerTemplateNotFoundError extends Error {
+  readonly searchedPaths: string[];
+  constructor(message: string, searchedPaths: string[]) {
+    super(message);
+    this.name = 'ViewerTemplateNotFoundError';
+    this.searchedPaths = searchedPaths;
+  }
+}
+
 async function templatePath(): Promise<string> {
   const here = dirname(fileURLToPath(import.meta.url));
   // In prod (bundled: `here` is the dist/ root): dist/viewer/template.html sits beside the compiled JS.
@@ -25,8 +34,9 @@ async function templatePath(): Promise<string> {
       // try next
     }
   }
-  throw new Error(
+  throw new ViewerTemplateNotFoundError(
     `viewer template.html not found (looked in: ${candidates.join(', ')}). Run \`pnpm --filter @fos/viewer build\` and \`pnpm --filter @fos/core build\` first.`,
+    candidates,
   );
 }
 
