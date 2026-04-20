@@ -30,43 +30,63 @@ function expandUserEvent(line: { message: { content: unknown } }, index: number,
     return [withTs({ kind: 'user' as TranscriptEventKind, index, text: content }, timestamp)];
   }
   if (Array.isArray(content)) {
-    return content.map((block, i) => {
-      if (block && typeof block === 'object' && 'type' in block && block.type === 'tool_result') {
+    const out: TranscriptEvent[] = [];
+    for (const block of content) {
+      if (!block || typeof block !== 'object' || !('type' in block) || typeof (block as { type: unknown }).type !== 'string') continue;
+      const type = (block as { type: string }).type;
+      if (type === 'tool_result') {
         const raw = typeof (block as { content: unknown }).content === 'string'
           ? ((block as { content: string }).content)
-          : JSON.stringify((block as { content: unknown }).content);
-        return withTs({
+          : JSON.stringify((block as { content: unknown }).content ?? '');
+        out.push(withTs({
           kind: 'tool_result' as TranscriptEventKind,
-          index: index + i,
+          index: index + out.length,
           text: summarize(raw),
           toolSummary: summarize(raw),
           strippedSize: raw.length,
-        }, timestamp);
+        }, timestamp));
       }
-      return withTs({ kind: 'user' as TranscriptEventKind, index: index + i, text: String(block) }, timestamp);
-    });
+      // Unknown user-side block types (e.g., `image`) are skipped.
+    }
+    if (out.length === 0) {
+      return [withTs({ kind: 'user' as TranscriptEventKind, index, text: '' }, timestamp)];
+    }
+    return out;
   }
   return [withTs({ kind: 'user' as TranscriptEventKind, index, text: '' }, timestamp)];
 }
 
-function expandAssistantEvent(line: { message: { content: Array<{ type: string; text?: string; name?: string; input?: unknown }> } }, index: number, timestamp: string | undefined): TranscriptEvent[] {
-  return line.message.content.map((block, i) => {
-    if (block.type === 'tool_use') {
-      const argSummary = summarize(JSON.stringify(block.input ?? {}));
-      return withTs({
+function expandAssistantEvent(line: { message: { content: unknown } }, index: number, timestamp: string | undefined): TranscriptEvent[] {
+  const { content } = line.message;
+  if (typeof content === 'string') {
+    return [withTs({ kind: 'assistant' as TranscriptEventKind, index, text: content }, timestamp)];
+  }
+  if (!Array.isArray(content)) {
+    return [withTs({ kind: 'assistant' as TranscriptEventKind, index, text: '' }, timestamp)];
+  }
+  const out: TranscriptEvent[] = [];
+  for (const block of content) {
+    if (!block || typeof block !== 'object' || !('type' in block) || typeof (block as { type: unknown }).type !== 'string') continue;
+    const b = block as { type: string; text?: unknown; name?: unknown; input?: unknown };
+    if (b.type === 'tool_use') {
+      const argSummary = summarize(JSON.stringify(b.input ?? {}));
+      out.push(withTs({
         kind: 'tool_use' as TranscriptEventKind,
-        index: index + i,
-        text: block.name ?? '',
-        toolName: block.name,
+        index: index + out.length,
+        text: typeof b.name === 'string' ? b.name : '',
+        toolName: typeof b.name === 'string' ? b.name : undefined,
         toolSummary: argSummary,
-      }, timestamp);
+      }, timestamp));
+    } else if (b.type === 'text') {
+      out.push(withTs({
+        kind: 'assistant' as TranscriptEventKind,
+        index: index + out.length,
+        text: typeof b.text === 'string' ? b.text : '',
+      }, timestamp));
     }
-    return withTs({
-      kind: 'assistant' as TranscriptEventKind,
-      index: index + i,
-      text: block.text ?? '',
-    }, timestamp);
-  });
+    // Other assistant-side block types (thinking, redacted_thinking, image, ...) are skipped.
+  }
+  return out;
 }
 
 /**

@@ -1,35 +1,23 @@
 import { z } from 'zod';
 
-/** A text content block in an assistant message. */
-const TextBlock = z.object({
-  type: z.literal('text'),
-  text: z.string(),
-});
-
-/** A tool_use content block in an assistant message. */
-const ToolUseBlock = z.object({
-  type: z.literal('tool_use'),
-  id: z.string(),
-  name: z.string(),
-  input: z.unknown(),
-});
-
-/** A tool_result content block (appears inside a "user" message in the transcript). */
-const ToolResultBlock = z.object({
-  type: z.literal('tool_result'),
-  tool_use_id: z.string(),
-  content: z.union([z.string(), z.array(z.object({ type: z.string(), text: z.string().optional() }))]),
-  is_error: z.boolean().optional(),
-});
+/**
+ * Content blocks inside a message are typed by a string `type` discriminator.
+ * Real Claude Code transcripts carry many kinds: text, tool_use, tool_result,
+ * thinking, redacted_thinking, image, etc. We only extract useful info from
+ * text / tool_use / tool_result; everything else is tolerated and skipped by
+ * the reader's expand functions. So the schema accepts any object with a
+ * string `type` field — the reader narrows to the kinds it handles.
+ */
+const ContentBlock = z.object({ type: z.string() }).passthrough();
 
 const UserMessage = z.object({
   role: z.literal('user'),
-  content: z.union([z.string(), z.array(ToolResultBlock)]),
+  content: z.union([z.string(), z.array(ContentBlock)]),
 });
 
 const AssistantMessage = z.object({
   role: z.literal('assistant'),
-  content: z.array(z.union([TextBlock, ToolUseBlock])),
+  content: z.union([z.string(), z.array(ContentBlock)]),
 });
 
 export const UserEventSchema = z.object({
