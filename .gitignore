@@ -1,0 +1,22 @@
+node_modules
+dist
+*.tsbuildinfo
+.turbo
+coverage
+.comprehension/.fos/cache
+
+# Secrets (machine convention — never commit plaintext credentials)
+.env
+.env.local
+.env.*.local
+.env.*
+
+# IDE + OS noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*

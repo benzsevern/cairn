@@ -1,0 +1,6 @@
+{"type":"user","timestamp":"2026-04-20T11:00:00Z","message":{"role":"user","content":"Our entity-resolution fuzzy matcher is flagging too many false positives on short names. Tune the threshold."}}
+{"type":"assistant","timestamp":"2026-04-20T11:00:05Z","message":{"role":"assistant","content":[{"type":"text","text":"I chose to switch from a fixed edit-distance threshold of 3 to a length-relative threshold of max(1, floor(len/4)) because short names (<= 6 chars) were collapsing into each other. I rejected a flat threshold of 2 because it hurt recall on long names where 3 edits are reasonable."}]}}
+{"type":"user","timestamp":"2026-04-20T11:00:30Z","message":{"role":"user","content":"Any secondary signal?"}}
+{"type":"assistant","timestamp":"2026-04-20T11:00:34Z","message":{"role":"assistant","content":[{"type":"text","text":"Yes: require a shared token prefix of length >= 2 for short-name matches. This is a refinement of entity-resolution, not a replacement."}]}}
+{"type":"user","timestamp":"2026-04-20T11:00:55Z","message":{"role":"user","content":"ship it"}}
+{"type":"assistant","timestamp":"2026-04-20T11:00:58Z","message":{"role":"assistant","content":[{"type":"text","text":"Updated src/match/fuzzy.ts with the length-relative threshold and prefix guard."}]}}

@@ -1,0 +1,6 @@
+{
+  "required_slugs": [],
+  "slug_reuse_context": [],
+  "required_reasoning_substrings": {},
+  "forbidden_slugs": ["fuzzy-matching", "entity-resolution"]
+}

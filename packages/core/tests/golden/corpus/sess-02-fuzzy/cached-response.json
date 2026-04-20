@@ -1,0 +1,21 @@
+{
+  "concepts": [
+    {
+      "slug": "fuzzy-matching",
+      "name": "Fuzzy company-name matching",
+      "kind": "introduced",
+      "summary": "Match messy company names across CRMs using Unicode NFKD normalization followed by Levenshtein edit distance with a threshold of 3.",
+      "reasoning": [
+        "Chose Levenshtein distance over Jaro-Winkler because it handled the observed typo cases more consistently.",
+        "Rejected naive substring matching because it fails on accented (Unicode) characters.",
+        "Rejected trigram/n-gram similarity because names are short (1-2 tokens), making trigram overlap noisy.",
+        "Normalize input with Unicode NFKD and strip punctuation before computing Levenshtein distance."
+      ],
+      "depends_on": [],
+      "files": ["src/match/fuzzy.ts"],
+      "transcript_refs": [1, 3, 5],
+      "confidence": "high"
+    }
+  ],
+  "unknowns": []
+}

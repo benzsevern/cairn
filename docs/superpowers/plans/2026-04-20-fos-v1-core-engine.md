@@ -234,7 +234,25 @@ dist
 .turbo
 coverage
 .comprehension/.fos/cache
+
+# Secrets (machine convention — never commit plaintext credentials)
+.env
+.env.local
+.env.*.local
+.env.*
+
+# IDE + OS noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
 ```
+
+**Note:** this machine uses Infisical for app-level API keys (see `D:\CLAUDE-SECRETS-SETUP.md`). `@fos/core` itself needs no API keys — it shells out to the user's existing authenticated `claude` CLI. The `.env*` patterns above are a defense-in-depth belt for any future scripts that might stash credentials locally.
 
 - [ ] **Step 4: Create `.npmrc`**
 

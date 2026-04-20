@@ -1,0 +1,5 @@
+{"type":"user","timestamp":"2026-04-20T10:00:00Z","message":{"role":"user","content":"hi"}}
+{"type":"totally_unknown_kind","payload":{}}
+{"type":"attachment","id":"x","timestamp":"2026-04-20T10:00:01Z"}
+{"type":"permission-mode","mode":"allow"}
+{"type":"user","timestamp":"2026-04-20T10:00:02Z","message":{"role":"user","content":"after the unknowns"}}

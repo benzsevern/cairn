@@ -1,0 +1,8 @@
+{
+  "required_slugs": ["fuzzy-matching"],
+  "slug_reuse_context": [],
+  "required_reasoning_substrings": {
+    "fuzzy-matching": ["levenshtein", "unicode"]
+  },
+  "forbidden_slugs": ["trigram-matching", "jaro-winkler"]
+}
