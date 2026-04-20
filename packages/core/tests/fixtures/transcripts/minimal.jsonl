@@ -1,0 +1,2 @@
+{"type":"user","timestamp":"2026-04-20T10:00:00Z","message":{"role":"user","content":"Add a fuzzy matcher for company names."}}
+{"type":"assistant","timestamp":"2026-04-20T10:00:03Z","message":{"role":"assistant","content":[{"type":"text","text":"I'll implement a Levenshtein-based matcher."}]}}
