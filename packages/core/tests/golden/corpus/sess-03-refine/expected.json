@@ -1,0 +1,8 @@
+{
+  "required_slugs": ["entity-resolution"],
+  "slug_reuse_context": ["entity-resolution"],
+  "required_reasoning_substrings": {
+    "entity-resolution": ["threshold", "short"]
+  },
+  "forbidden_slugs": ["threshold-tuning", "fuzzy-matching-v2"]
+}
