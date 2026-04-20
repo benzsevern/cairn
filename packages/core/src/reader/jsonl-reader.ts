@@ -69,6 +69,15 @@ function expandAssistantEvent(line: { message: { content: Array<{ type: string; 
   });
 }
 
+/**
+ * Event `type` values we recognize and parse. Real Claude Code transcripts
+ * also contain `attachment`, `permission-mode`, `file-history-snapshot`,
+ * `last-prompt`, etc. — those are skipped silently (they carry no information
+ * useful for concept extraction). Unknown types with no `type` field at all
+ * still throw, since that signals a genuinely malformed line.
+ */
+const KNOWN_KINDS = new Set(['user', 'assistant', 'system']);
+
 export async function readTranscript(path: string): Promise<TranscriptEvent[]> {
   const raw = await readFile(path, 'utf8');
   const lines = raw.split(/\r?\n/).filter((l) => l.trim().length > 0);
@@ -76,7 +85,32 @@ export async function readTranscript(path: string): Promise<TranscriptEvent[]> {
   let index = 0;
 
   for (const line of lines) {
-    const json = JSON.parse(line) as unknown;
+    let json: unknown;
+    try {
+      json = JSON.parse(line);
+    } catch (e) {
+      throw new MalformedTranscriptError(
+        `Malformed JSON at line ${index + 1}`,
+        index,
+        e,
+      );
+    }
+
+    const kind = (json && typeof json === 'object' && 'type' in json && typeof (json as { type: unknown }).type === 'string')
+      ? (json as { type: string }).type
+      : null;
+
+    if (kind === null) {
+      throw new MalformedTranscriptError(
+        `Line ${index + 1} has no string "type" field`,
+        index,
+        json,
+      );
+    }
+
+    // Unknown-but-typed events (attachment, permission-mode, etc.) are skipped.
+    if (!KNOWN_KINDS.has(kind)) continue;
+
     const parsed = TranscriptLineSchema.safeParse(json);
     if (!parsed.success) {
       throw new MalformedTranscriptError(

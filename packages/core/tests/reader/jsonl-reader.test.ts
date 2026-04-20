@@ -54,17 +54,21 @@ describe('readTranscript — tool events', () => {
   });
 });
 
-describe('readTranscript — rejection', () => {
-  it('throws loudly on unrecognized event types', async () => {
+describe('readTranscript — unknown types are skipped', () => {
+  it('silently skips attachment / permission-mode / other unknown types', async () => {
     const path = resolve(here, '../fixtures/transcripts/malformed.jsonl');
-    await expect(readTranscript(path)).rejects.toThrow(/Unrecognized transcript event/);
+    const events = await readTranscript(path);
+    // malformed.jsonl has 2 user events + 3 unknown-typed events (totally_unknown_kind, attachment, permission-mode).
+    // Only the 2 user events should be emitted.
+    expect(events).toHaveLength(2);
+    expect(events[0]).toMatchObject({ kind: 'user', text: 'hi' });
+    expect(events[1]).toMatchObject({ kind: 'user', text: 'after the unknowns' });
   });
+});
 
-  it('throws MalformedTranscriptError with lineIndex and cause on unrecognized events', async () => {
-    const path = resolve(here, '../fixtures/transcripts/malformed.jsonl');
-    await expect(readTranscript(path)).rejects.toMatchObject({
-      name: 'MalformedTranscriptError',
-    });
+describe('readTranscript — rejection', () => {
+  it('throws MalformedTranscriptError on a known type with broken shape', async () => {
+    const path = resolve(here, '../fixtures/transcripts/broken-user.jsonl');
     await expect(readTranscript(path)).rejects.toBeInstanceOf(MalformedTranscriptError);
     try {
       await readTranscript(path);
@@ -76,12 +80,23 @@ describe('readTranscript — rejection', () => {
     }
   });
 
-  it('throws on invalid JSON lines', async () => {
+  it('throws MalformedTranscriptError on invalid JSON lines', async () => {
     const tmp = resolve(here, '../fixtures/transcripts/invalid-line.jsonl');
     const { writeFile, unlink } = await import('node:fs/promises');
     await writeFile(tmp, 'not-json\n', 'utf8');
     try {
-      await expect(readTranscript(tmp)).rejects.toThrow();
+      await expect(readTranscript(tmp)).rejects.toBeInstanceOf(MalformedTranscriptError);
+    } finally {
+      await unlink(tmp);
+    }
+  });
+
+  it('throws MalformedTranscriptError on lines with no "type" field', async () => {
+    const tmp = resolve(here, '../fixtures/transcripts/no-type.jsonl');
+    const { writeFile, unlink } = await import('node:fs/promises');
+    await writeFile(tmp, '{"message":{"role":"user","content":"hi"}}\n', 'utf8');
+    try {
+      await expect(readTranscript(tmp)).rejects.toThrow(/no string "type" field/);
     } finally {
       await unlink(tmp);
     }
