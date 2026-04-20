@@ -54,3 +54,24 @@ export function serializePayload(
 
   return parts.join('\n');
 }
+
+export const PAYLOAD_SOFT_CAP_CHARS = 400_000;
+
+export class PayloadTooLargeError extends Error {
+  constructor(public readonly size: number, public readonly cap: number) {
+    super(`PayloadTooLarge: serialized prompt payload is ${size} chars, cap is ${cap}. Split the session or compress further.`);
+    this.name = 'PayloadTooLargeError';
+  }
+}
+
+export function serializePayloadWithGuard(
+  segments: Segment[],
+  existing: ExistingConceptSummary[],
+  userGoal: string,
+): string {
+  const payload = serializePayload(segments, existing, userGoal);
+  if (payload.length > PAYLOAD_SOFT_CAP_CHARS) {
+    throw new PayloadTooLargeError(payload.length, PAYLOAD_SOFT_CAP_CHARS);
+  }
+  return payload;
+}
