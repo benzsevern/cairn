@@ -63,4 +63,16 @@ describe('renderGraphHtml', () => {
     expect(payload).toContain('<\\/script>');
   });
 
+  it('produces valid HTML with zero nodes', async () => {
+    await renderGraphHtml(tmp, {
+      schema_version: '1.0.0',
+      generated_at: 't',
+      project_view_version: 0,
+      nodes: [],
+      edges: [],
+    });
+    const html = await readFile(graphHtmlPath(tmp), 'utf8');
+    expect(html).toContain('"nodes":[]');
+    expect(html).toContain('"edges":[]');
+  });
 });
