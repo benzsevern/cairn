@@ -155,7 +155,7 @@ Newline-delimited JSON. Events: `spawned_at`, `worker_started`, `worker_success`
 
 ### 3.5 `acked_at` — failure-banner acknowledgment
 
-Empty marker file touched by `/comprehend status --ack`. SessionStart only shows failure banners for failures after this timestamp.
+Empty marker file touched by `/comprehend status --ack`. SessionStart compares failure-log timestamps against this file's **mtime** (not its contents, which stay empty). A failure log with `timestamp > acked_at.mtime` is considered un-acknowledged and triggers the banner.
 
 ### 3.6 Existing state (from Plan 1, not new in Plan 2)
 
@@ -279,7 +279,7 @@ Flags:
 ```
 
 - **Synchronous** (user is at the keyboard). No detach. Fails fast if the lock is held.
-- **Exit 0** on success, **1** on refiner failure, **3** if the project isn't opted in.
+- **Exit 0** on success, **1** on refiner failure, **3** if the project isn't opted in, **4** if the lock is held by a running background analysis (print a message pointing at `/comprehend status`).
 
 ### 5.3 `/comprehend status`
 
@@ -410,3 +410,5 @@ v1 of the plugin ships when all of the following are true:
 After user approval of this spec, the next step is `superpowers:writing-plans` to produce a sequenced implementation plan with phase checkpoints and subagent-dispatchable task units. No other implementation skill is invoked before the plan exists.
 
 Phase 0 of that plan MUST be a "hello-world plugin probe" to resolve §7.4 open questions empirically before porting the main logic. This is non-negotiable — it de-risks the plugin-format unknowns, which are this plan's biggest failure mode.
+
+**The probe must explicitly verify that slash commands can prompt interactively** (for `/comprehend init`'s y/N prompt). If they cannot, the implementation plan must make `--accept` the only supported path and document the non-interactive failure mode.
