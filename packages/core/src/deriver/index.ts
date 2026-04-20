@@ -4,3 +4,4 @@ export { writeConceptFiles, renderConceptFile, dedupePrefix } from './concept-wr
 export { buildGraphJson, writeGraphJson } from './graph-json.js';
 export type { GraphJson, GraphJsonNode, GraphJsonEdge } from './graph-json.js';
 export { existingConceptSummaries } from './existing-concepts.js';
+export { renderGraphHtml } from '../viewer/render-html.js';
