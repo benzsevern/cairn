@@ -2934,6 +2934,7 @@ function renderConcept(c: ConceptNode): string {
     `## Concept: ${c.name}  {#${c.slug}}`,
     '',
     `**Kind:** ${c.kind}`,
+    `**Confidence:** ${c.confidence}`,
     `**Depends on:** [${c.depends_on.join(', ')}]`,
     `**Files:** ${c.files.join(', ')}`,
     '',
@@ -3032,10 +3033,11 @@ describe('writeSessionArtifact', () => {
   it('overwrites an existing session file without leaving a temp artifact', async () => {
     await writeSessionArtifact(tmp, minimal, '2026-04-20');
     const updated = { ...minimal, model: 'claude-opus-4-7' };
-    await writeSessionArtifact(tmp, updated, '2026-04-20');
+    const target = await writeSessionArtifact(tmp, updated, '2026-04-20');
     const files = await readdir(sessionsDir(tmp));
     expect(files).toHaveLength(1);
-    const text = await readFile(files[0]!.includes('sess-1') ? join(sessionsDir(tmp), files[0]!) : '', 'utf8');
+    expect(files[0]).toMatch(/\.md$/);
+    const text = await readFile(target, 'utf8');
     expect(text).toContain('claude-opus-4-7');
   });
 });
@@ -3320,6 +3322,7 @@ Uses `gray-matter` for frontmatter and regex matching for the body structure pro
 - `UNKNOWN_HEADER_RE = /^## Unknowns\s*$/m`
 - `REFS_RE = /\*\*Transcript refs:\*\*\s+\[([^\]]*)\]/`
 - `KIND_RE = /\*\*Kind:\*\*\s+(introduced|refined|referenced)/`
+- `CONFIDENCE_RE = /\*\*Confidence:\*\*\s+(high|medium|low|unknown)/`
 - `DEPENDS_RE = /\*\*Depends on:\*\*\s+\[([^\]]*)\]/`
 - `FILES_RE = /\*\*Files:\*\*\s+(.+)$/m`
 - `SUMMARY_RE = /\*\*Summary\*\*\s*\n([\s\S]*?)(?:\n\*\*|$)/`
@@ -3330,7 +3333,7 @@ Parsing logic:
 1. `matter(raw)` to split frontmatter from body.
 2. Split body at `UNKNOWN_HEADER_RE` into concept-area and unknowns-area.
 3. Walk all `## Concept: Name {#slug}` matches in the concept-area; slice body between consecutive headers.
-4. For each slice, apply the per-field regexes and parse `tool-use:N` refs back to integers. Confidence is not persisted in the written format, so set to `'unknown'` on load.
+4. For each slice, apply the per-field regexes and parse `tool-use:N` refs back to integers. `CONFIDENCE_RE` recovers the refiner's original confidence value; if the regex doesn't match (pre-confidence-persistence session files), default to `'unknown'`.
 5. Unknowns area: iterate `UNKNOWN_BULLET_RE`.
 
 Return a `SessionArtifact`. Implement `loadAllSessions(projectRoot)` that reads `sessionsDir(projectRoot)`, filters to `*.md` (skipping `.failed.json`), parses each, and sorts by `analyzed_at` ascending.
@@ -4613,6 +4616,8 @@ Expected: `manifest.json`, `sessions/`, `concepts/`, `.fos/` all present.
 - Create: `packages/core/src/backfill.ts`
 - Create: `packages/core/tests/integration/backfill-discovery.test.ts`
 
+> **Note for the implementer:** `src/backfill.ts` is built incrementally across Tasks 49 and 50. Task 49 adds `discoverSessions` + `DiscoveredSession`. Task 50 extends the same file with `backfill` + `BackfillArgs`. The final file exports all four symbols.
+
 - [ ] **Step 1: Write test** using a fake Claude projects dir layout under a tmp root.
 
 - [ ] **Step 2: Write `discoverSessions` helper** inside `backfill.ts`:
@@ -4923,9 +4928,10 @@ async function loadCase(dir: string): Promise<{ transcript: string; expected: Ex
  */
 function makeEvalInvoke(caseDir: string): InvokeFn {
   if (process.env.FOS_EVAL_REAL === '1') {
-    const { invokeClaude } = require('../../src/refiner/invoke.js');
-    return async ({ systemPrompt, userInput }) =>
-      invokeClaude({ systemPrompt, userInput, claudeBin: 'claude', timeoutMs: 120_000 });
+    return async ({ systemPrompt, userInput }) => {
+      const { invokeClaude } = await import('../../src/refiner/invoke.js');
+      return invokeClaude({ systemPrompt, userInput, claudeBin: 'claude', timeoutMs: 120_000 });
+    };
   }
   return async () => readFile(join(caseDir, 'cached-response.json'), 'utf8');
 }
