@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-04-20T00:00:00Z",
+  "project_view_version": 1,
+  "nodes": [
+    {
+      "slug": "root",
+      "name": "Root Concept",
+      "confidence": "high",
+      "introduced_in": "s1",
+      "file_count": 3,
+      "session_touch_count": 1,
+      "has_unknowns": false
+    }
+  ],
+  "edges": []
+}
