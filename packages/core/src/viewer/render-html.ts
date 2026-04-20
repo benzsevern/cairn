@@ -8,10 +8,12 @@ const PLACEHOLDER = '<!-- FOS_GRAPH_JSON_PLACEHOLDER -->';
 
 async function templatePath(): Promise<string> {
   const here = dirname(fileURLToPath(import.meta.url));
-  // In prod (running from dist/): dist/viewer/template.html lives next to the compiled JS.
+  // In prod (bundled: `here` is the dist/ root): dist/viewer/template.html sits beside the compiled JS.
+  // In prod (if the bundler nests a level deeper, e.g. dist/cli/): ../viewer/template.html.
+  // In dev (running from src/viewer/ via vitest): fall back to the package's built template, or the viewer app's dist.
   const candidates = [
+    resolve(here, 'viewer', 'template.html'),
     resolve(here, '..', 'viewer', 'template.html'),
-    // In dev (running from src/ via vitest): fall back to the package's built template, or the viewer app's dist.
     resolve(here, '..', '..', 'dist', 'viewer', 'template.html'),
     resolve(here, '..', '..', '..', '..', 'apps', 'viewer', 'dist', 'template.html'),
   ];
