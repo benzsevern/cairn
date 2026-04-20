@@ -22,7 +22,11 @@ export type Runner = (bin: string, args: string[], opts: ExecaOptions) => Promis
 
 const defaultRunner: Runner = async (bin, args, opts) => {
   const res = await execa(bin, args, opts);
-  return { stdout: res.stdout, stderr: res.stderr, exitCode: res.exitCode ?? 0 };
+  return {
+    stdout: typeof res.stdout === 'string' ? res.stdout : String(res.stdout ?? ''),
+    stderr: typeof res.stderr === 'string' ? res.stderr : String(res.stderr ?? ''),
+    exitCode: res.exitCode ?? 0,
+  };
 };
 
 export interface InvokeClaudeArgs {
