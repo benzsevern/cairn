@@ -78,3 +78,30 @@ When promoting real transcripts into the corpus:
 - Drop any `tool_result` blocks containing file contents from private repos.
 - Keep the event indices contiguous from 0 so `transcript_refs` in the
   expected output remain meaningful.
+
+## Mining real transcripts
+
+1. Copy a real Claude Code JSONL from `~/.claude/projects/<hash>/*.jsonl` to a temp file.
+2. Scrub: `node tools/scrub-transcript.mjs <input> <output> --redact-word <any-internal-name>`.
+3. **Manually read the scrubbed output** before proceeding. Look for:
+   - Project names, internal service names, customer names, URLs that identify you or your org.
+   - Any quoted dialogue that names people.
+4. Before committing, run `bash scripts/pre-commit.sh` to double-check.
+5. Hand-author `expected.json` referencing the spec-approved `TAGS` taxonomy.
+6. Hand-author `cached-response.json` that satisfies `expected.json`.
+7. Commit.
+
+## Tag taxonomy (from Plan 3 spec §3.1)
+
+Allowed tags:
+`algorithmic-choice`, `refactor`, `bug-fix`, `multi-turn-pivot`, `terse-user`,
+`no-concepts-expected`, `slug-reuse`, `conflicting-decisions`,
+`implicit-reasoning`, `abandoned-path`, `tool-heavy`, `pure-narrative`,
+`mined`, `synthetic`.
+
+Unknown tags print an eval warning but don't fail the build. To add a new
+tag, update the `TAGS` constant in `metrics.ts` in the same commit.
+
+## Difficulty
+
+Optional field, mostly used on synthetic cases: `easy` | `medium` | `hard`.

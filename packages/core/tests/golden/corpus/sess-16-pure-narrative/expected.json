@@ -1,0 +1,11 @@
+{
+  "required_slugs": ["inventory-locking-strategy"],
+  "slug_reuse_context": [],
+  "required_reasoning_substrings": {
+    "inventory-locking-strategy": ["optimistic", "hot"]
+  },
+  "forbidden_slugs": ["pessimistic-locking", "optimistic-locking", "hysteresis"],
+  "tags": ["pure-narrative", "synthetic"],
+  "difficulty": "medium",
+  "notes": "Pure Q&A explanation session — no tool calls, no file edits, just narrative. The assistant recommends a specific architectural strategy (optimistic locking as default with hot-SKU escalation to pessimistic row locks, governed by hysteresis thresholds). The refiner must capture this as one composite concept, not split each mechanism (pessimistic-locking, optimistic-locking, hysteresis) into its own concept — they are sub-components of the one recommended strategy."
+}

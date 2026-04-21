@@ -1,0 +1,21 @@
+{
+  "required_slugs": [
+    "domain-aware-autoconfig",
+    "preflight-sample-run",
+    "runtime-circuit-breaker"
+  ],
+  "slug_aliases": {
+    "domain-aware-autoconfig": ["domain-aware-auto-config", "auto-configure-df", "autoconfig-domain-presets"],
+    "preflight-sample-run": ["preflight-system", "preflight-sample", "preflight-stage"],
+    "runtime-circuit-breaker": ["circuit-breaker"]
+  },
+  "slug_reuse_context": ["auto-configure-df"],
+  "required_reasoning_substrings": {
+    "domain-aware-autoconfig": ["domain", "preset"],
+    "preflight-sample-run": ["sample", "5K"],
+    "runtime-circuit-breaker": ["memory", "budget"]
+  },
+  "forbidden_slugs": ["task-list-scaffolding", "feature-branch-creation", "memory-feedback-note-update"],
+  "tags": ["refactor", "mined", "multiple-concepts", "long-session"],
+  "notes": "User opens with '401K bulldozer equipment dedup' failures on auto-config and wants to 'address both issues in the Golden Suite' (auto-config brittleness + OOM/cost blow-ups). Refactors GoldenMatch's auto_configure_df and dedupe_df pipeline. Three architectural concepts emerge: (1) domain-aware auto-config backed by YAML presets (electronics/people/etc.) layered on top of the existing regex-based profiler, (2) an autonomous preflight stage that runs a small 5K-row sample through the full pipeline, measures resources, and auto-downgrades config when projections exceed safety budgets, (3) runtime circuit breakers that cut off the real run when memory/cost/time budgets are exceeded. The existing `auto_configure_df` and `dedupe_df` entry points are being refined rather than replaced — hence `slug_reuse_context: ['auto-configure-df']`. Forbidden slugs are orchestration artifacts (task-list scaffolding, feature-branch creation, memory-note updates) not architectural decisions."
+}

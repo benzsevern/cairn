@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-04-21T17:19:15.705Z",
-  "refiner_version": "v1.0.0",
-  "refiner_prompt_hash": "sha256:70e9e5220ce76c988b3f5258a16509aa1ab72fef737dc8fb0901a0fdaa0ad692",
+  "generated_at": "2026-04-21T23:25:40.454Z",
+  "refiner_version": "v1.1.0",
+  "refiner_prompt_hash": "sha256:fbd26ed7ca99c548ac7d2e4296335e0f49aa7b8f95adcabd111c8433ab730675",
   "mode": "cached",
-  "corpus_size": 3,
+  "corpus_size": 15,
   "tolerance": {
     "concept_recall_pct": 0.05,
     "schema_valid_pct": 0.02,
@@ -19,7 +19,7 @@
       "p50": 1,
       "p25": 1,
       "mean": 1,
-      "applicable_cases": 1
+      "applicable_cases": 2
     },
     "reasoning_preservation": {
       "p50": 1,
@@ -40,7 +40,8 @@
       "slug_reuse_precision": null,
       "reasoning_preservation": 1,
       "schema_valid": true,
-      "forbidden_slug_violations": 0
+      "forbidden_slug_violations": 0,
+      "raw_response": "{\r\n  \"concepts\": [],\r\n  \"unknowns\": []\r\n}\r\n"
     },
     {
       "slug": "sess-02-fuzzy",
@@ -52,7 +53,8 @@
       "slug_reuse_precision": null,
       "reasoning_preservation": 1,
       "schema_valid": true,
-      "forbidden_slug_violations": 0
+      "forbidden_slug_violations": 0,
+      "raw_response": "{\r\n  \"concepts\": [\r\n    {\r\n      \"slug\": \"fuzzy-matching\",\r\n      \"name\": \"Fuzzy company-name matching\",\r\n      \"kind\": \"introduced\",\r\n      \"summary\": \"Match messy company names across CRMs using Unicode NFKD normalization followed by Levenshtein edit distance with a threshold of 3.\",\r\n      \"reasoning\": [\r\n        \"Chose Levenshtein distance over Jaro-Winkler because it handled the observed typo cases more consistently.\",\r\n        \"Rejected naive substring matching because it fails on accented (Unicode) characters.\",\r\n        \"Rejected trigram/n-gram similarity because names are short (1-2 tokens), making trigram overlap noisy.\",\r\n        \"Normalize input with Unicode NFKD and strip punctuation before computing Levenshtein distance.\"\r\n      ],\r\n      \"depends_on\": [],\r\n      \"files\": [\"src/match/fuzzy.ts\"],\r\n      \"transcript_refs\": [1, 3, 5],\r\n      \"confidence\": \"high\"\r\n    }\r\n  ],\r\n  \"unknowns\": []\r\n}\r\n"
     },
     {
       "slug": "sess-03-refine",
@@ -64,7 +66,170 @@
       "slug_reuse_precision": 1,
       "reasoning_preservation": 1,
       "schema_valid": true,
-      "forbidden_slug_violations": 0
+      "forbidden_slug_violations": 0,
+      "raw_response": "{\r\n  \"concepts\": [\r\n    {\r\n      \"slug\": \"entity-resolution\",\r\n      \"name\": \"Entity resolution: threshold tuning\",\r\n      \"kind\": \"refined\",\r\n      \"summary\": \"Refine the fuzzy-matcher threshold from a flat edit distance of 3 to a length-relative threshold of max(1, floor(len/4)), plus a shared-token-prefix guard for short names.\",\r\n      \"reasoning\": [\r\n        \"Chose a length-relative threshold of max(1, floor(len/4)) because short names were collapsing under a fixed threshold of 3.\",\r\n        \"Rejected a flat threshold of 2 because it hurt recall on long names where 3 edits are reasonable.\",\r\n        \"Added a shared token prefix guard (len >= 2) as a secondary signal for short names.\",\r\n        \"This refines the existing entity-resolution concept rather than introducing a new one.\"\r\n      ],\r\n      \"depends_on\": [],\r\n      \"files\": [\"src/match/fuzzy.ts\"],\r\n      \"transcript_refs\": [1, 3, 5],\r\n      \"confidence\": \"high\"\r\n    }\r\n  ],\r\n  \"unknowns\": []\r\n}\r\n"
+    },
+    {
+      "slug": "sess-04-terse-user",
+      "tags": [
+        "terse-user",
+        "mined",
+        "tool-heavy",
+        "bug-fix"
+      ],
+      "concept_recall": 1,
+      "slug_reuse_precision": null,
+      "reasoning_preservation": 1,
+      "schema_valid": true,
+      "forbidden_slug_violations": 0,
+      "raw_response": "{\n  \"concepts\": [\n    {\n      \"slug\": \"mcp-resources-list-handler\",\n      \"name\": \"MCP servers must register empty resources/list and prompts/list handlers\",\n      \"kind\": \"introduced\",\n      \"summary\": \"Smithery's registry scanner probes every MCP server for resources/list and prompts/list regardless of declared capabilities; servers that only implement tools must register no-op handlers or the Python SDK returns JSON-RPC error -32601 (Method not found), which surfaces in Claude Code as 'Failed to list resources' warnings.\",\n      \"reasoning\": [\n        \"Root cause: the -32601 error from Smithery comes from resources/list being invoked on a server that only registered list_tools and call_tool handlers.\",\n        \"Fix is to register empty list_resources and list_prompts handlers; this makes the Python SDK advertise both capabilities in the initialize response, which silences the Smithery probe cleanly.\",\n        \"Declaring capabilities alone is not sufficient — Smithery still probes both methods and expects a successful empty response, not -32601.\",\n        \"Applies uniformly to all four Golden Suite MCP servers (goldenpipe, goldencheck, goldenflow, goldenmatch); the same two-handler patch plus version/Dockerfile bump fixes them all.\"\n      ],\n      \"depends_on\": [],\n      \"files\": [\n        \"goldenpipe/mcp/server.py\",\n        \"goldencheck/goldencheck/mcp/server.py\",\n        \"goldenflow/goldenflow/mcp/server.py\",\n        \"goldenmatch/goldenmatch/mcp/server.py\"\n      ],\n      \"transcript_refs\": [1, 2, 3, 5, 7],\n      \"confidence\": \"high\"\n    }\n  ],\n  \"unknowns\": []\n}\n"
+    },
+    {
+      "slug": "sess-05-long-session",
+      "tags": [
+        "long-session",
+        "mined",
+        "multiple-concepts"
+      ],
+      "concept_recall": 1,
+      "slug_reuse_precision": null,
+      "reasoning_preservation": 1,
+      "schema_valid": true,
+      "forbidden_slug_violations": 0,
+      "raw_response": "{\n  \"concepts\": [\n    {\n      \"slug\": \"er-benchmark-design\",\n      \"name\": \"NPPES entity-resolution benchmark: Dedupe.io vs Golden Suite\",\n      \"kind\": \"introduced\",\n      \"summary\": \"Design a head-to-head entity-resolution benchmark using a 500k-row NPPES (CMS provider data) sample, comparing the canonical OSS tool Dedupe.io against GoldenMatch. Published as a blog post titled 'The OSS ER Bargain'.\",\n      \"reasoning\": [\n        \"Chose NPPES (CMS Medicare/Medicaid provider data) as the dataset because it is public, large (6M+ rows), and has classic dirty-ER properties: name variants, address drift, org-vs-individual collisions.\",\n        \"Chose Dedupe.io as the sole OSS comparison tool (rejecting a multi-tool comparison including Splink and RecordLinkage) to keep the narrative clean — one canonical OSS tool vs Golden.\",\n        \"Sample size of 500k rows chosen over the full 6M to keep the run tractable; existing Golden Suite advancements are claimed to prevent OOM at this scale.\"\n      ],\n      \"depends_on\": [],\n      \"files\": [\n        \"docs/superpowers/specs/2026-04-08-nppes-er-blog-post-design.md\",\n        \"docs/superpowers/plans/2026-04-08-nppes-er-blog-post.md\"\n      ],\n      \"transcript_refs\": [1, 4, 6, 8],\n      \"confidence\": \"high\"\n    },\n    {\n      \"slug\": \"ccms-cluster-comparison\",\n      \"name\": \"CCMS cluster comparison + sensitivity analysis for ground-truth-free ER evaluation\",\n      \"kind\": \"introduced\",\n      \"summary\": \"Without a ground-truth linkage for NPPES, evaluate Dedupe vs GoldenMatch via (a) structural cluster agreement metrics like Adjusted Rand Index and pairwise-overlap and (b) per-tool sensitivity analysis that varies thresholds and observes cluster-shape stability.\",\n      \"reasoning\": [\n        \"Running both tools on NPPES without ground truth means any raw precision/recall number would be fiction.\",\n        \"CCMS cluster comparison quantifies structural agreement (Adjusted Rand Index, pairwise overlap, cluster-size distributions) between the two tools' outputs — a defensible story even without labels.\",\n        \"Sensitivity analysis (varying thresholds / config knobs) shows which tool's clusters are stable under perturbation — orthogonal signal to the agreement metric.\",\n        \"Preferred over an alternate proposal (agreement-based comparison with manual spot-checks) because CCMS yields two independent quantitative axes instead of one.\"\n      ],\n      \"depends_on\": [\"er-benchmark-design\"],\n      \"files\": [\n        \"docs/superpowers/specs/2026-04-08-nppes-er-blog-post-design.md\"\n      ],\n      \"transcript_refs\": [9, 10],\n      \"confidence\": \"high\"\n    },\n    {\n      \"slug\": \"spec-review-loop\",\n      \"name\": \"Iterative spec-reviewer dispatch loop\",\n      \"kind\": \"introduced\",\n      \"summary\": \"Write a design spec, dispatch a reviewer subagent against it, apply all blocking issues the reviewer finds, then re-dispatch on the revised spec and iterate until the reviewer returns no blockers. Same pattern repeats for the implementation plan.\",\n      \"reasoning\": [\n        \"First-pass spec draft flagged 12 issues by the reviewer, including scope and feasibility blockers.\",\n        \"Rewriting the spec to address every issue and re-running the reviewer produced a clean second-pass approval — the iterate-until-clean loop is the design pattern.\",\n        \"Implementation plan (separate artifact) goes through the same loop; plan-reviewer found 2 blocking issues (retrain-per-subprocess, invented GM API) which were patched in a second pass.\"\n      ],\n      \"depends_on\": [],\n      \"files\": [\n        \"docs/superpowers/specs/2026-04-08-nppes-er-blog-post-design.md\",\n        \"docs/superpowers/plans/2026-04-08-nppes-er-blog-post.md\"\n      ],\n      \"transcript_refs\": [14, 15],\n      \"confidence\": \"medium\"\n    }\n  ],\n  \"unknowns\": []\n}\n"
+    },
+    {
+      "slug": "sess-07-refactor",
+      "tags": [
+        "refactor",
+        "mined",
+        "multiple-concepts",
+        "long-session"
+      ],
+      "concept_recall": 1,
+      "slug_reuse_precision": null,
+      "reasoning_preservation": 1,
+      "schema_valid": true,
+      "forbidden_slug_violations": 0,
+      "raw_response": "{\n  \"concepts\": [\n    {\n      \"slug\": \"domain-aware-autoconfig\",\n      \"name\": \"Domain-aware auto-config via YAML presets\",\n      \"kind\": \"introduced\",\n      \"summary\": \"Extend `auto_configure_df()` with a domain detector that chooses a tuned YAML preset (equipment, people, financial, healthcare, electronics, …) as the starting config, then layers the existing regex/profiler heuristics on top. Fixes brittleness where the generic profiler produced bad blocking/scoring configs for domain-specific data like 401k bulldozer equipment.\",\n      \"reasoning\": [\n        \"Root cause of the 401K equipment dedup failure: the current auto_configure_df is purely generic — column-name regex plus data profiling — with no concept of 'this is equipment data, use these matchkeys and these blocking rules'.\",\n        \"Chose a layered approach over pure-preset or pure-heuristic: detect domain, load its YAML preset as a starting point, then let the generic profiler refine on top of it. Preserves the zero-config path for simple cases.\",\n        \"Presets live as YAML packs alongside the existing domain YAML files (`goldenmatch/domains/*.yaml`); each pack gains an `autoconfig_preset` field with matchkeys/blocking/standardization/threshold defaults.\",\n        \"Rejected requiring the user to specify domain explicitly — detection has to be automatic to preserve the 'works out of the box' promise.\"\n      ],\n      \"depends_on\": [],\n      \"files\": [\n        \"goldenmatch/core/autoconfig.py\",\n        \"goldenmatch/core/domain_detector.py\",\n        \"goldenmatch/core/domain_registry.py\",\n        \"goldenmatch/domains/electronics.yaml\",\n        \"goldenmatch/domains/people.yaml\"\n      ],\n      \"transcript_refs\": [1, 2, 6, 7],\n      \"confidence\": \"high\"\n    },\n    {\n      \"slug\": \"preflight-sample-run\",\n      \"name\": \"Autonomous preflight sample run with auto-downgrade\",\n      \"kind\": \"introduced\",\n      \"summary\": \"Before the real dedupe_df run, invoke a `preflight()` stage that takes a ~5K-row stratified sample, runs it through the full pipeline, measures actual memory / pair count / LLM tokens, projects the full-run cost, and either proceeds or auto-downgrades the config (smaller blocks, cheaper scorer, skip oversize) when projections exceed the safety budget — all without user interaction.\",\n      \"reasoning\": [\n        \"Constraint from the user: because GoldenMatch is a library embedded in Python backends, preflight cannot require interactive approval — it has to self-correct.\",\n        \"Chose sample size of 5K rows as the default (1% for very large inputs) — small enough to complete in seconds, large enough to expose skewed blocks and LLM latency.\",\n        \"Preflight returns a `RunPlan` dataclass (with `ResourceProjection`, `SampleStats`, and any `Downgrade` actions applied) rather than mutating global config; preserves clean data flow into the main pipeline.\",\n        \"Preflight is integrated into `dedupe_df()` by default (run_preflight=True) rather than being a separate opt-in step, because the whole point is to prevent the user from skipping it accidentally.\"\n      ],\n      \"depends_on\": [\"domain-aware-autoconfig\"],\n      \"files\": [\n        \"goldenmatch/core/preflight.py\",\n        \"goldenmatch/core/pipeline.py\",\n        \"goldenmatch/_api.py\"\n      ],\n      \"transcript_refs\": [7, 8, 9, 10],\n      \"confidence\": \"high\"\n    },\n    {\n      \"slug\": \"runtime-circuit-breaker\",\n      \"name\": \"Runtime circuit breakers for memory / cost / time budgets\",\n      \"kind\": \"introduced\",\n      \"summary\": \"Real runs diverge from preflight projections (skewed blocks, LLM latency spikes, memory fragmentation). Add a `CircuitBreaker` polled between blocks in scorer.py and between LLM batches in llm_scorer.py; when a memory/cost/time budget is exceeded it raises `CircuitBreakerError` or takes a `CircuitAction` (skip oversize blocks).\",\n      \"reasoning\": [\n        \"Preflight alone is insufficient because Python doesn't fully reclaim memory from prior runs — static projections drift on consecutive invocations.\",\n        \"Chose a poll-between-work-units model rather than a background watchdog thread because it plays nicely with Polars locks and avoids cross-thread Python GIL surprises.\",\n        \"Unified circuit breaker over three separate per-axis breakers (memory, cost, time): one object tracks all three budgets, simplifies the API, and lets users set one policy everywhere.\"\n      ],\n      \"depends_on\": [\"preflight-sample-run\"],\n      \"files\": [\n        \"goldenmatch/core/circuit_breaker.py\",\n        \"goldenmatch/core/scorer.py\",\n        \"goldenmatch/core/llm_scorer.py\",\n        \"goldenmatch/core/pipeline.py\"\n      ],\n      \"transcript_refs\": [7, 8, 10],\n      \"confidence\": \"high\"\n    }\n  ],\n  \"unknowns\": []\n}\n"
+    },
+    {
+      "slug": "sess-08-debugging",
+      "tags": [
+        "debugging",
+        "mined",
+        "bug-fix"
+      ],
+      "concept_recall": 1,
+      "slug_reuse_precision": null,
+      "reasoning_preservation": 1,
+      "schema_valid": true,
+      "forbidden_slug_violations": 0,
+      "raw_response": "{\n  \"concepts\": [\n    {\n      \"slug\": \"npx-cache-eperm-clear\",\n      \"name\": \"Corrupted npx cache causes MCP server startup failure\",\n      \"kind\": \"introduced\",\n      \"summary\": \"Context7 MCP server fails at startup with a silent 'failed' state in Claude Code because `npx -y @upstash/context7-mcp` hits an EPERM error when unpacking a dependency (zod) into a corrupted/locked directory under `D:/AppData_Local/npm-cache/_npx/<hash>`. Clearing that specific _npx subdirectory is the fix.\",\n      \"reasoning\": [\n        \"The plugin-level 'failed' state in Claude Code's /mcp dialog hides the underlying startup error.\",\n        \"Running the MCP server command directly via an initialize JSON-RPC handshake surfaces the real cause — EPERM permission denied on the npm-cache npx path, coming from a partial/locked zod unpack.\",\n        \"Clearing just the corrupted `_npx/<hash>` subdirectory (rather than the entire npm cache) restores the server because npx will re-fetch into a fresh working dir.\",\n        \"The corruption is recurring — after a restart, the same EPERM returned on Context7, suggesting an ongoing fight with antivirus / OneDrive file-locks on the D: drive npm cache path.\"\n      ],\n      \"depends_on\": [],\n      \"files\": [],\n      \"transcript_refs\": [5, 6, 12],\n      \"confidence\": \"high\"\n    },\n    {\n      \"slug\": \"greptile-bearer-env-var\",\n      \"name\": \"Greptile MCP plugin needs GREPTILE_API_KEY as a persistent Windows env var\",\n      \"kind\": \"introduced\",\n      \"summary\": \"Greptile's MCP server uses HTTP transport with a `Bearer ${GREPTILE_API_KEY}` Authorization header; the Claude Code plugin cache at `.mcp.json` references the env var, so the fix is to set GREPTILE_API_KEY persistently via `setx` (user-scope), then revert any literal-token edits to the cached config.\",\n      \"reasoning\": [\n        \"Greptile's MCP config uses `${GREPTILE_API_KEY}` substitution for the Authorization Bearer header — setting the env var is the intended path, not hardcoding the token into the cached .mcp.json.\",\n        \"Initial attempt to patch the literal token into the cached config is fragile because cache rebuilds will overwrite it; the marketplace source also uses ${GREPTILE_API_KEY}.\",\n        \"`setx` writes to HKCU only for new processes, so Claude Code must be restarted before it picks up the new env var.\",\n        \"Linear presents a superficially similar 'needs authentication' symptom but resolves via an OAuth browser flow triggered from /mcp — do not conflate the two.\"\n      ],\n      \"depends_on\": [],\n      \"files\": [],\n      \"transcript_refs\": [4, 7],\n      \"confidence\": \"high\"\n    }\n  ],\n  \"unknowns\": []\n}\n"
+    },
+    {
+      "slug": "sess-09-no-concepts",
+      "tags": [
+        "no-concepts-expected",
+        "mined"
+      ],
+      "concept_recall": 1,
+      "slug_reuse_precision": null,
+      "reasoning_preservation": 1,
+      "schema_valid": true,
+      "forbidden_slug_violations": 0,
+      "raw_response": "{\n  \"concepts\": [],\n  \"unknowns\": []\n}\n"
+    },
+    {
+      "slug": "sess-10-conflicting-decisions",
+      "tags": [
+        "conflicting-decisions",
+        "synthetic"
+      ],
+      "concept_recall": 1,
+      "slug_reuse_precision": null,
+      "reasoning_preservation": 1,
+      "schema_valid": true,
+      "forbidden_slug_violations": 0,
+      "raw_response": "{\n  \"concepts\": [\n    {\n      \"slug\": \"api-response-cache\",\n      \"name\": \"API response cache via Redis\",\n      \"kind\": \"introduced\",\n      \"summary\": \"Cache API responses in the existing Redis instance with a 60-second TTL so all three load-balanced replicas serve consistent cached results.\",\n      \"reasoning\": [\n        \"Initially considered an in-memory LRU cache but pivoted after the user pointed out the service runs three replicas behind a load balancer, which would cause inconsistent responses across replicas.\",\n        \"Chose Redis because it shares cache state across all replicas and is already part of the operational footprint (session store), so no new infra dependency is introduced.\",\n        \"Selected a 60-second TTL to balance response freshness against the load-reduction goal.\"\n      ],\n      \"depends_on\": [],\n      \"files\": [\"src/cache/redis-cache.ts\"],\n      \"transcript_refs\": [1, 3, 5, 7],\n      \"confidence\": \"high\"\n    }\n  ],\n  \"unknowns\": []\n}\n"
+    },
+    {
+      "slug": "sess-11-implicit-reasoning",
+      "tags": [
+        "implicit-reasoning",
+        "synthetic"
+      ],
+      "concept_recall": 1,
+      "slug_reuse_precision": null,
+      "reasoning_preservation": 1,
+      "schema_valid": true,
+      "forbidden_slug_violations": 0,
+      "raw_response": "{\n  \"concepts\": [\n    {\n      \"slug\": \"idempotent-payment-webhook\",\n      \"name\": \"Idempotent payment webhook handler\",\n      \"kind\": \"introduced\",\n      \"summary\": \"Make the payment webhook idempotent by replacing read-then-write with a conditional update guarded on status, and adding a unique partial index on paidEventId at the database layer.\",\n      \"reasoning\": [\n        \"Replaced the read-then-write pattern with a single conditional updateWhere that only transitions an order from non-paid to paid, eliminating the race window where two concurrent webhook deliveries both observed status != 'paid'.\",\n        \"Skipped fulfillment when updatedCount is zero so a losing concurrent update no longer double-queues the order.\",\n        \"Added a unique partial index on orders.paid_event_id so duplicate webhook deliveries carrying the same event id are rejected at the database level as a second defense.\",\n        \"Reasoning is inferred from the code diff — the assistant did not spell out 'because of a race condition' but the shape of the change (conditional update + event-id uniqueness) is the standard idempotency pattern for this bug class.\"\n      ],\n      \"depends_on\": [],\n      \"files\": [\"src/webhooks/payment.ts\", \"migrations/0042_orders_paid_event_unique.sql\"],\n      \"transcript_refs\": [1, 3, 5, 6],\n      \"confidence\": \"medium\"\n    }\n  ],\n  \"unknowns\": []\n}\n"
+    },
+    {
+      "slug": "sess-12-abandoned-path",
+      "tags": [
+        "abandoned-path",
+        "synthetic"
+      ],
+      "concept_recall": 1,
+      "slug_reuse_precision": null,
+      "reasoning_preservation": 1,
+      "schema_valid": true,
+      "forbidden_slug_violations": 0,
+      "raw_response": "{\n  \"concepts\": [\n    {\n      \"slug\": \"edge-rate-limiting\",\n      \"name\": \"Edge-layer rate limiting on public API\",\n      \"kind\": \"introduced\",\n      \"summary\": \"Enforce rate limits for public API endpoints at the Cloudflare edge (100 requests/minute per IP on /api/public/*) rather than in application middleware.\",\n      \"reasoning\": [\n        \"Initially sketched an in-process token-bucket middleware but abandoned and deleted it because in-process buckets do not coordinate across an autoscaled fleet — each pod would maintain its own bucket, letting a client achieve up to N * limit effective throughput.\",\n        \"Switched to Cloudflare rate-limiting rules at the edge because they run on a single logical layer in front of the fleet, so the counter is globally consistent regardless of pod count.\",\n        \"Configured 100 req/min per IP on the /api/public/* path pattern.\"\n      ],\n      \"depends_on\": [],\n      \"files\": [\"infra/cloudflare/rate-limits.tf\"],\n      \"transcript_refs\": [1, 5, 8, 9],\n      \"confidence\": \"high\"\n    }\n  ],\n  \"unknowns\": []\n}\n"
+    },
+    {
+      "slug": "sess-13-slug-reuse",
+      "tags": [
+        "slug-reuse",
+        "synthetic"
+      ],
+      "concept_recall": 1,
+      "slug_reuse_precision": 1,
+      "reasoning_preservation": 1,
+      "schema_valid": true,
+      "forbidden_slug_violations": 0,
+      "raw_response": "{\n  \"concepts\": [\n    {\n      \"slug\": \"entity-resolution\",\n      \"name\": \"Entity resolution: borderline-band Jaccard filter\",\n      \"kind\": \"refined\",\n      \"summary\": \"Refine the entity-resolution pipeline with a stage-2 filter: when stage-1 edit distance lands within 1 of the length-relative threshold (borderline band), require Jaccard token overlap >= 0.5 to accept the match.\",\n      \"reasoning\": [\n        \"Stage-1 length-relative Levenshtein still does the heavy lifting; stage-2 only intervenes on borderline scores to reject human-implausible matches.\",\n        \"Chose Jaccard on tokenized names because inputs have already been NFKD-normalized and punctuation-stripped, so tokenization is reliable. Jaccard is cheap, symmetric, and interpretable at a 0.5 threshold.\",\n        \"Rejected cosine over character n-grams because it reintroduces short-name noise sensitivity — the exact failure mode the stage-1 length-relative threshold was designed to avoid.\",\n        \"This refines the existing entity-resolution concept; it is not a new pipeline.\"\n      ],\n      \"depends_on\": [],\n      \"files\": [\"src/match/fuzzy.ts\"],\n      \"transcript_refs\": [1, 3, 5],\n      \"confidence\": \"high\"\n    }\n  ],\n  \"unknowns\": []\n}\n"
+    },
+    {
+      "slug": "sess-14-empty-transcript",
+      "tags": [
+        "empty-transcript",
+        "synthetic"
+      ],
+      "concept_recall": 1,
+      "slug_reuse_precision": null,
+      "reasoning_preservation": 1,
+      "schema_valid": true,
+      "forbidden_slug_violations": 0,
+      "raw_response": "{\"concepts\": [], \"unknowns\": []}\n"
+    },
+    {
+      "slug": "sess-15-tool-heavy",
+      "tags": [
+        "tool-heavy",
+        "synthetic"
+      ],
+      "concept_recall": 1,
+      "slug_reuse_precision": null,
+      "reasoning_preservation": 1,
+      "schema_valid": true,
+      "forbidden_slug_violations": 0,
+      "raw_response": "{\n  \"concepts\": [\n    {\n      \"slug\": \"date-library-migration\",\n      \"name\": \"Migrate date handling from moment to date-fns\",\n      \"kind\": \"introduced\",\n      \"summary\": \"Replace moment with date-fns across src/utils/dates.ts, src/reports/monthly.ts, src/schedule/cron.ts, and src/billing/invoice.ts, then drop moment from package.json.\",\n      \"reasoning\": [\n        \"Chose date-fns because it is tree-shakeable (per-function imports reduce bundle size) and actively maintained.\",\n        \"Rejected staying on moment because the library is in maintenance mode and its non-tree-shakeable monolithic import inflates the bundle.\",\n        \"Migrated call sites to the equivalent date-fns functions (format, startOfMonth, endOfMonth, addDays, parseISO, differenceInDays) preserving the existing behavior.\",\n        \"Verified the migration with pnpm typecheck before finishing.\"\n      ],\n      \"depends_on\": [],\n      \"files\": [\"src/utils/dates.ts\", \"src/reports/monthly.ts\", \"src/schedule/cron.ts\", \"src/billing/invoice.ts\"],\n      \"transcript_refs\": [1, 3, 5, 7, 9, 11, 13],\n      \"confidence\": \"high\"\n    }\n  ],\n  \"unknowns\": []\n}\n"
+    },
+    {
+      "slug": "sess-16-pure-narrative",
+      "tags": [
+        "pure-narrative",
+        "synthetic"
+      ],
+      "concept_recall": 1,
+      "slug_reuse_precision": null,
+      "reasoning_preservation": 1,
+      "schema_valid": true,
+      "forbidden_slug_violations": 0,
+      "raw_response": "{\n  \"concepts\": [\n    {\n      \"slug\": \"inventory-locking-strategy\",\n      \"name\": \"Inventory service locking strategy\",\n      \"kind\": \"introduced\",\n      \"summary\": \"Use optimistic locking (version-guarded UPDATE with retry) as the default for inventory writes, and escalate hot SKUs to pessimistic row locks (SELECT ... FOR UPDATE) based on a rolling write-rate tier with hysteresis.\",\n      \"reasoning\": [\n        \"Chose optimistic locking as the default because most SKUs see low concurrent writes, so the no-lock-held path is cheap and retries are rare.\",\n        \"Rejected pessimistic-only locking because it serializes writers on cold SKUs where there is no real contention, adding latency for no benefit.\",\n        \"Escalate hot SKUs (>= 20 writes/minute on a 60-second rolling window) to SELECT ... FOR UPDATE because optimistic retry rates spike under flash-sale contention.\",\n        \"Use hysteresis between promote (20/min) and demote (15/min) thresholds so borderline SKUs do not flicker between lock strategies.\",\n        \"Demote a hot SKU after 5 minutes below the demote threshold.\"\n      ],\n      \"depends_on\": [],\n      \"files\": [],\n      \"transcript_refs\": [1, 3, 5],\n      \"confidence\": \"high\"\n    }\n  ],\n  \"unknowns\": []\n}\n"
     }
   ]
 }

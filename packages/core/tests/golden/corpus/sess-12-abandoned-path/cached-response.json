@@ -1,0 +1,20 @@
+{
+  "concepts": [
+    {
+      "slug": "edge-rate-limiting",
+      "name": "Edge-layer rate limiting on public API",
+      "kind": "introduced",
+      "summary": "Enforce rate limits for public API endpoints at the Cloudflare edge (100 requests/minute per IP on /api/public/*) rather than in application middleware.",
+      "reasoning": [
+        "Initially sketched an in-process token-bucket middleware but abandoned and deleted it because in-process buckets do not coordinate across an autoscaled fleet — each pod would maintain its own bucket, letting a client achieve up to N * limit effective throughput.",
+        "Switched to Cloudflare rate-limiting rules at the edge because they run on a single logical layer in front of the fleet, so the counter is globally consistent regardless of pod count.",
+        "Configured 100 req/min per IP on the /api/public/* path pattern."
+      ],
+      "depends_on": [],
+      "files": ["infra/cloudflare/rate-limits.tf"],
+      "transcript_refs": [1, 5, 8, 9],
+      "confidence": "high"
+    }
+  ],
+  "unknowns": []
+}

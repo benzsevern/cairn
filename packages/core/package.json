@@ -4,11 +4,19 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "bin": { "fos": "./dist/cli/bin.js" },
-  "exports": {
-    ".": { "import": "./dist/index.js", "types": "./dist/index.d.ts" }
+  "bin": {
+    "fos": "./dist/cli/bin.js"
   },
-  "files": ["dist", "prompts"],
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "prompts"
+  ],
   "scripts": {
     "build": "tsup",
     "test": "vitest run",
@@ -23,6 +31,7 @@
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
     "@fos/viewer": "workspace:*",
     "@types/node": "^20.12.0",
     "tsup": "^8.0.0",

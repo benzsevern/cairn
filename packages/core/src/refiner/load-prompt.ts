@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve, parse as parsePath } from 'node:path';
 import { overridePromptPath } from '../paths.js';
 
-export const SHIPPED_REFINER_VERSION = 'v1.0.0';
+export const SHIPPED_REFINER_VERSION = 'v1.1.0';
 
 export class RefinerPromptNotFoundError extends Error {
   readonly searchedPaths: string[];

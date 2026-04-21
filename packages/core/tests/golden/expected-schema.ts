@@ -10,6 +10,7 @@ export const TAGS = [
 
 export const ExpectedSchema = z.object({
   required_slugs: z.array(z.string()).default([]),
+  slug_aliases: z.record(z.string(), z.array(z.string())).default({}),
   slug_reuse_context: z.array(z.string()).default([]),
   required_reasoning_substrings: z.record(z.string(), z.array(z.string())).default({}),
   forbidden_slugs: z.array(z.string()).default([]),

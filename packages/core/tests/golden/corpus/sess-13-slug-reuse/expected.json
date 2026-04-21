@@ -1,0 +1,11 @@
+{
+  "required_slugs": ["entity-resolution"],
+  "slug_reuse_context": ["entity-resolution"],
+  "required_reasoning_substrings": {
+    "entity-resolution": ["jaccard", "borderline"]
+  },
+  "forbidden_slugs": ["entity-resolution-v2", "token-overlap-filter", "jaccard-filter"],
+  "tags": ["slug-reuse", "synthetic"],
+  "difficulty": "medium",
+  "notes": "Session refines the existing entity-resolution concept (from sess-03) by adding a stage-2 Jaccard token-overlap filter gated on a borderline edit-distance band. Tests whether the refiner reuses the entity-resolution slug (kind: refined) rather than minting a new slug like entity-resolution-v2 or token-overlap-filter."
+}

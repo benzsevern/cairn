@@ -20,3 +20,10 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Plan 4 per-iteration eval snapshots (not committed)
+packages/core/tests/golden/iterations/
+
+# Claude Code runtime files
+.claude/scheduled_tasks.lock
+.claude/settings.local.json

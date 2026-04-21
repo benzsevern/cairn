@@ -1,0 +1,11 @@
+{
+  "required_slugs": ["date-library-migration"],
+  "slug_reuse_context": [],
+  "required_reasoning_substrings": {
+    "date-library-migration": ["date-fns", "moment"]
+  },
+  "forbidden_slugs": ["grep-usage", "typecheck-workflow", "pnpm-package-management"],
+  "tags": ["tool-heavy", "synthetic"],
+  "difficulty": "medium",
+  "notes": "Tool-dominated session: one short prose rationale, then a long sequence of Grep/Edit/Bash tool calls to perform a moment -> date-fns migration. The refiner must extract the one architectural decision (library migration) from the tool transcript rather than minting concepts for each tool invocation or for mundane workflow steps (typecheck, pnpm install)."
+}

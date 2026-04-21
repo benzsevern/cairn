@@ -1,0 +1,67 @@
+{
+  "concepts": [
+    {
+      "slug": "domain-aware-autoconfig",
+      "name": "Domain-aware auto-config via YAML presets",
+      "kind": "introduced",
+      "summary": "Extend `auto_configure_df()` with a domain detector that chooses a tuned YAML preset (equipment, people, financial, healthcare, electronics, …) as the starting config, then layers the existing regex/profiler heuristics on top. Fixes brittleness where the generic profiler produced bad blocking/scoring configs for domain-specific data like 401k bulldozer equipment.",
+      "reasoning": [
+        "Root cause of the 401K equipment dedup failure: the current auto_configure_df is purely generic — column-name regex plus data profiling — with no concept of 'this is equipment data, use these matchkeys and these blocking rules'.",
+        "Chose a layered approach over pure-preset or pure-heuristic: detect domain, load its YAML preset as a starting point, then let the generic profiler refine on top of it. Preserves the zero-config path for simple cases.",
+        "Presets live as YAML packs alongside the existing domain YAML files (`goldenmatch/domains/*.yaml`); each pack gains an `autoconfig_preset` field with matchkeys/blocking/standardization/threshold defaults.",
+        "Rejected requiring the user to specify domain explicitly — detection has to be automatic to preserve the 'works out of the box' promise."
+      ],
+      "depends_on": [],
+      "files": [
+        "goldenmatch/core/autoconfig.py",
+        "goldenmatch/core/domain_detector.py",
+        "goldenmatch/core/domain_registry.py",
+        "goldenmatch/domains/electronics.yaml",
+        "goldenmatch/domains/people.yaml"
+      ],
+      "transcript_refs": [1, 2, 6, 7],
+      "confidence": "high"
+    },
+    {
+      "slug": "preflight-sample-run",
+      "name": "Autonomous preflight sample run with auto-downgrade",
+      "kind": "introduced",
+      "summary": "Before the real dedupe_df run, invoke a `preflight()` stage that takes a ~5K-row stratified sample, runs it through the full pipeline, measures actual memory / pair count / LLM tokens, projects the full-run cost, and either proceeds or auto-downgrades the config (smaller blocks, cheaper scorer, skip oversize) when projections exceed the safety budget — all without user interaction.",
+      "reasoning": [
+        "Constraint from the user: because GoldenMatch is a library embedded in Python backends, preflight cannot require interactive approval — it has to self-correct.",
+        "Chose sample size of 5K rows as the default (1% for very large inputs) — small enough to complete in seconds, large enough to expose skewed blocks and LLM latency.",
+        "Preflight returns a `RunPlan` dataclass (with `ResourceProjection`, `SampleStats`, and any `Downgrade` actions applied) rather than mutating global config; preserves clean data flow into the main pipeline.",
+        "Preflight is integrated into `dedupe_df()` by default (run_preflight=True) rather than being a separate opt-in step, because the whole point is to prevent the user from skipping it accidentally."
+      ],
+      "depends_on": ["domain-aware-autoconfig"],
+      "files": [
+        "goldenmatch/core/preflight.py",
+        "goldenmatch/core/pipeline.py",
+        "goldenmatch/_api.py"
+      ],
+      "transcript_refs": [7, 8, 9, 10],
+      "confidence": "high"
+    },
+    {
+      "slug": "runtime-circuit-breaker",
+      "name": "Runtime circuit breakers for memory / cost / time budgets",
+      "kind": "introduced",
+      "summary": "Real runs diverge from preflight projections (skewed blocks, LLM latency spikes, memory fragmentation). Add a `CircuitBreaker` polled between blocks in scorer.py and between LLM batches in llm_scorer.py; when a memory/cost/time budget is exceeded it raises `CircuitBreakerError` or takes a `CircuitAction` (skip oversize blocks).",
+      "reasoning": [
+        "Preflight alone is insufficient because Python doesn't fully reclaim memory from prior runs — static projections drift on consecutive invocations.",
+        "Chose a poll-between-work-units model rather than a background watchdog thread because it plays nicely with Polars locks and avoids cross-thread Python GIL surprises.",
+        "Unified circuit breaker over three separate per-axis breakers (memory, cost, time): one object tracks all three budgets, simplifies the API, and lets users set one policy everywhere."
+      ],
+      "depends_on": ["preflight-sample-run"],
+      "files": [
+        "goldenmatch/core/circuit_breaker.py",
+        "goldenmatch/core/scorer.py",
+        "goldenmatch/core/llm_scorer.py",
+        "goldenmatch/core/pipeline.py"
+      ],
+      "transcript_refs": [7, 8, 10],
+      "confidence": "high"
+    }
+  ],
+  "unknowns": []
+}

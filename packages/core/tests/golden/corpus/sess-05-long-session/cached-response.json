@@ -1,0 +1,59 @@
+{
+  "concepts": [
+    {
+      "slug": "er-benchmark-design",
+      "name": "NPPES entity-resolution benchmark: Dedupe.io vs Golden Suite",
+      "kind": "introduced",
+      "summary": "Design a head-to-head entity-resolution benchmark using a 500k-row NPPES (CMS provider data) sample, comparing the canonical OSS tool Dedupe.io against GoldenMatch. Published as a blog post titled 'The OSS ER Bargain'.",
+      "reasoning": [
+        "Chose NPPES (CMS Medicare/Medicaid provider data) as the dataset because it is public, large (6M+ rows), and has classic dirty-ER properties: name variants, address drift, org-vs-individual collisions.",
+        "Chose Dedupe.io as the sole OSS comparison tool (rejecting a multi-tool comparison including Splink and RecordLinkage) to keep the narrative clean — one canonical OSS tool vs Golden.",
+        "Sample size of 500k rows chosen over the full 6M to keep the run tractable; existing Golden Suite advancements are claimed to prevent OOM at this scale."
+      ],
+      "depends_on": [],
+      "files": [
+        "docs/superpowers/specs/2026-04-08-nppes-er-blog-post-design.md",
+        "docs/superpowers/plans/2026-04-08-nppes-er-blog-post.md"
+      ],
+      "transcript_refs": [1, 4, 6, 8],
+      "confidence": "high"
+    },
+    {
+      "slug": "ccms-cluster-comparison",
+      "name": "CCMS cluster comparison + sensitivity analysis for ground-truth-free ER evaluation",
+      "kind": "introduced",
+      "summary": "Without a ground-truth linkage for NPPES, evaluate Dedupe vs GoldenMatch via (a) structural cluster agreement metrics like Adjusted Rand Index and pairwise-overlap and (b) per-tool sensitivity analysis that varies thresholds and observes cluster-shape stability.",
+      "reasoning": [
+        "Running both tools on NPPES without ground truth means any raw precision/recall number would be fiction.",
+        "CCMS cluster comparison quantifies structural agreement (Adjusted Rand Index, pairwise overlap, cluster-size distributions) between the two tools' outputs — a defensible story even without labels.",
+        "Sensitivity analysis (varying thresholds / config knobs) shows which tool's clusters are stable under perturbation — orthogonal signal to the agreement metric.",
+        "Preferred over an alternate proposal (agreement-based comparison with manual spot-checks) because CCMS yields two independent quantitative axes instead of one."
+      ],
+      "depends_on": ["er-benchmark-design"],
+      "files": [
+        "docs/superpowers/specs/2026-04-08-nppes-er-blog-post-design.md"
+      ],
+      "transcript_refs": [9, 10],
+      "confidence": "high"
+    },
+    {
+      "slug": "spec-review-loop",
+      "name": "Iterative spec-reviewer dispatch loop",
+      "kind": "introduced",
+      "summary": "Write a design spec, dispatch a reviewer subagent against it, apply all blocking issues the reviewer finds, then re-dispatch on the revised spec and iterate until the reviewer returns no blockers. Same pattern repeats for the implementation plan.",
+      "reasoning": [
+        "First-pass spec draft flagged 12 issues by the reviewer, including scope and feasibility blockers.",
+        "Rewriting the spec to address every issue and re-running the reviewer produced a clean second-pass approval — the iterate-until-clean loop is the design pattern.",
+        "Implementation plan (separate artifact) goes through the same loop; plan-reviewer found 2 blocking issues (retrain-per-subprocess, invented GM API) which were patched in a second pass."
+      ],
+      "depends_on": [],
+      "files": [
+        "docs/superpowers/specs/2026-04-08-nppes-er-blog-post-design.md",
+        "docs/superpowers/plans/2026-04-08-nppes-er-blog-post.md"
+      ],
+      "transcript_refs": [14, 15],
+      "confidence": "medium"
+    }
+  ],
+  "unknowns": []
+}

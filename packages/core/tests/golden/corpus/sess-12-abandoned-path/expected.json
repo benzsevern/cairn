@@ -1,0 +1,14 @@
+{
+  "required_slugs": ["edge-rate-limiting"],
+  "slug_aliases": {
+    "edge-rate-limiting": ["public-api-rate-limiting", "cloudflare-rate-limiting", "public-api-edge-rate-limiting"]
+  },
+  "slug_reuse_context": [],
+  "required_reasoning_substrings": {
+    "edge-rate-limiting": ["cloudflare", "autoscal"]
+  },
+  "forbidden_slugs": ["token-bucket-middleware", "in-process-token-bucket"],
+  "tags": ["abandoned-path", "synthetic"],
+  "difficulty": "medium",
+  "notes": "Assistant begins an in-process token-bucket, writes a sketch file, then deletes it and switches to Cloudflare edge rate limiting. Only the final, shipped approach (edge-rate-limiting) should appear as a concept. The abandoned in-process token-bucket must NOT show up as its own architectural concept — it was a false start that got reversed in the same session."
+}

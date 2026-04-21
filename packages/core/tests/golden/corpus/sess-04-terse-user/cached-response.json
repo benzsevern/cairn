@@ -1,0 +1,26 @@
+{
+  "concepts": [
+    {
+      "slug": "mcp-resources-list-handler",
+      "name": "MCP servers must register empty resources/list and prompts/list handlers",
+      "kind": "introduced",
+      "summary": "Smithery's registry scanner probes every MCP server for resources/list and prompts/list regardless of declared capabilities; servers that only implement tools must register no-op handlers or the Python SDK returns JSON-RPC error -32601 (Method not found), which surfaces in Claude Code as 'Failed to list resources' warnings.",
+      "reasoning": [
+        "Root cause: the -32601 error from Smithery comes from resources/list being invoked on a server that only registered list_tools and call_tool handlers.",
+        "Fix is to register empty list_resources and list_prompts handlers; this makes the Python SDK advertise both capabilities in the initialize response, which silences the Smithery probe cleanly.",
+        "Declaring capabilities alone is not sufficient — Smithery still probes both methods and expects a successful empty response, not -32601.",
+        "Applies uniformly to all four Golden Suite MCP servers (goldenpipe, goldencheck, goldenflow, goldenmatch); the same two-handler patch plus version/Dockerfile bump fixes them all."
+      ],
+      "depends_on": [],
+      "files": [
+        "goldenpipe/mcp/server.py",
+        "goldencheck/goldencheck/mcp/server.py",
+        "goldenflow/goldenflow/mcp/server.py",
+        "goldenmatch/goldenmatch/mcp/server.py"
+      ],
+      "transcript_refs": [1, 2, 3, 5, 7],
+      "confidence": "high"
+    }
+  ],
+  "unknowns": []
+}

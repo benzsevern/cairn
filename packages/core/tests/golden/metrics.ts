@@ -19,18 +19,34 @@ export function scoreCase(
 ): Omit<CaseMetrics, 'elapsed_ms'> {
   const actualSlugs = new Set(actual.concepts.map((c) => c.slug));
 
+  // A required slug is satisfied if the actual output contains either the slug
+  // itself OR any of its declared aliases. Aliases exist because slug-naming
+  // is a stylistic choice and the corpus should grade comprehension, not
+  // punish defensible alternate names.
+  const slugMatched = (canonical: string): boolean => {
+    if (actualSlugs.has(canonical)) return true;
+    const aliases = expected.slug_aliases[canonical] ?? [];
+    return aliases.some((a) => actualSlugs.has(a));
+  };
+  const matchedSlug = (canonical: string): string | null => {
+    if (actualSlugs.has(canonical)) return canonical;
+    const aliases = expected.slug_aliases[canonical] ?? [];
+    return aliases.find((a) => actualSlugs.has(a)) ?? null;
+  };
+
   const recall = expected.required_slugs.length === 0
     ? 1
-    : expected.required_slugs.filter((s) => actualSlugs.has(s)).length / expected.required_slugs.length;
+    : expected.required_slugs.filter(slugMatched).length / expected.required_slugs.length;
 
   const contextRelevant = expected.slug_reuse_context.filter((s) => expected.required_slugs.includes(s));
   const slug_reuse_precision = contextRelevant.length === 0
     ? null
-    : contextRelevant.filter((s) => actualSlugs.has(s)).length / contextRelevant.length;
+    : contextRelevant.filter(slugMatched).length / contextRelevant.length;
 
   let total = 0, matched = 0;
   for (const [slug, substrings] of Object.entries(expected.required_reasoning_substrings)) {
-    const concept = actual.concepts.find((c) => c.slug === slug);
+    const resolved = matchedSlug(slug);
+    const concept = resolved ? actual.concepts.find((c) => c.slug === resolved) : undefined;
     const body = concept ? [concept.summary, ...concept.reasoning].join(' ').toLowerCase() : '';
     for (const s of substrings) {
       total += 1;

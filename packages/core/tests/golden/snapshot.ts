@@ -1,7 +1,41 @@
-import { writeFile, readFile } from 'node:fs/promises';
+import { writeFile, readFile, mkdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { CaseMetrics, Aggregate } from './metrics.js';
+import { SHIPPED_REFINER_VERSION } from '../../src/refiner/load-prompt.js';
+
+export interface IterationCaseRecord extends CaseMetrics {
+  raw_response?: string;
+}
+
+export interface IterationDeltaArgs {
+  targetDir: string;
+  refinerHash: string;
+  mode: 'cached' | 'real';
+  provider: 'cli' | 'api';
+  model: string;
+  metrics: IterationCaseRecord[];
+  aggregate: Aggregate;
+}
+
+export async function writeIterationDelta(args: IterationDeltaArgs): Promise<string> {
+  await mkdir(args.targetDir, { recursive: true });
+  const ts = new Date().toISOString().replace(/[:.]/g, '-');
+  const shortHash = args.refinerHash.replace('sha256:', '').slice(0, 12);
+  const filename = `${ts}-${shortHash}.json`;
+  const path = join(args.targetDir, filename);
+  const payload = {
+    written_at: new Date().toISOString(),
+    refiner_hash: args.refinerHash,
+    mode: args.mode,
+    provider: args.provider,
+    model: args.model,
+    aggregate: args.aggregate,
+    per_case: args.metrics,
+  };
+  await writeFile(path, JSON.stringify(payload, null, 2), 'utf8');
+  return path;
+}
 
 export async function maybeSnapshot(cases: CaseMetrics[], agg: Aggregate): Promise<void> {
   if (process.env['FOS_EVAL_MODE'] !== 'snapshot') return;
@@ -13,7 +47,7 @@ export async function maybeSnapshot(cases: CaseMetrics[], agg: Aggregate): Promi
 
   const baseline = {
     generated_at: new Date().toISOString(),
-    refiner_version: 'v1.0.0',
+    refiner_version: SHIPPED_REFINER_VERSION,
     refiner_prompt_hash: refinerHash,
     mode: process.env['FOS_EVAL_REAL'] === '1' ? 'real' : 'cached',
     corpus_size: cases.length,

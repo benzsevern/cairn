@@ -1,0 +1,8 @@
+{"type":"user","timestamp":"2026-04-20T12:00:00Z","message":{"role":"user","content":"We need a cache layer for the API responses. What should we use?"}}
+{"type":"assistant","timestamp":"2026-04-20T12:00:05Z","message":{"role":"assistant","content":[{"type":"text","text":"I'll use in-memory LRU caching because it is simple, has no infra overhead, and our service is single-process. Rejecting Redis because it adds an operational dependency we don't currently have."}]}}
+{"type":"user","timestamp":"2026-04-20T12:00:30Z","message":{"role":"user","content":"Hold on — we run three replicas behind a load balancer, cache coherence matters. And we already operate Redis for the session store."}}
+{"type":"assistant","timestamp":"2026-04-20T12:00:36Z","message":{"role":"assistant","content":[{"type":"text","text":"You're right, I had the deployment topology wrong. Switching to Redis for the cache layer: it shares state across replicas so cache hits benefit all three, and since Redis is already in the operational footprint there is no new infra cost. In-memory LRU would cause inconsistent responses depending on which replica served the request."}]}}
+{"type":"user","timestamp":"2026-04-20T12:01:00Z","message":{"role":"user","content":"Good. TTL?"}}
+{"type":"assistant","timestamp":"2026-04-20T12:01:04Z","message":{"role":"assistant","content":[{"type":"text","text":"60-second TTL on the Redis entries — balances freshness against the load reduction we're trying to achieve."}]}}
+{"type":"user","timestamp":"2026-04-20T12:01:20Z","message":{"role":"user","content":"ship it"}}
+{"type":"assistant","timestamp":"2026-04-20T12:01:24Z","message":{"role":"assistant","content":[{"type":"text","text":"Implementing in src/cache/redis-cache.ts with a 60s TTL."}]}}

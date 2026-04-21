@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { ExpectedSchema } from './expected-schema.js';
 import { scoreCase, aggregate, type CaseMetrics } from './metrics.js';
 import { maybeSnapshot } from './snapshot.js';
+import type { IterationCaseRecord } from './snapshot.js';
 import { analyzeSession, RefinerOutputSchema, type InvokeFn } from '../../src/index.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -24,14 +25,24 @@ async function loadBaseline(): Promise<Baseline | null> {
   } catch { return null; }
 }
 
-function makeEvalInvoke(caseDir: string): InvokeFn {
-  if (process.env['FOS_EVAL_REAL'] === '1') {
-    return async ({ systemPrompt, userInput }) => {
-      const { invokeClaude } = await import('../../src/refiner/invoke.js');
-      return invokeClaude({ systemPrompt, userInput, claudeBin: 'claude', timeoutMs: 120_000 });
+export function makeEvalInvoke(caseDir: string): InvokeFn {
+  if (process.env['FOS_EVAL_REAL'] !== '1') {
+    return async () => readFile(join(caseDir, 'cached-response.json'), 'utf8');
+  }
+  const provider = process.env['FOS_EVAL_PROVIDER'] ?? 'cli';
+  if (provider === 'api') {
+    const apiKey = process.env['ANTHROPIC_API_KEY'];
+    if (!apiKey) throw new Error('FOS_EVAL_PROVIDER=api requires ANTHROPIC_API_KEY');
+    const model = process.env['FOS_EVAL_MODEL'] ?? 'claude-sonnet-4-6';
+    return async (args) => {
+      const { makeApiInvoke } = await import('./api-invoke.js');
+      return makeApiInvoke(apiKey, model)(args);
     };
   }
-  return async () => readFile(join(caseDir, 'cached-response.json'), 'utf8');
+  return async ({ systemPrompt, userInput }) => {
+    const { invokeClaude } = await import('../../src/refiner/invoke.js');
+    return invokeClaude({ systemPrompt, userInput, claudeBin: 'claude', timeoutMs: 120_000 });
+  };
 }
 
 const corpusDir = join(here, 'corpus');
@@ -39,7 +50,7 @@ const caseDirs = (await readdir(corpusDir, { withFileTypes: false }))
   .filter((n) => !n.startsWith('.'))
   .sort();
 
-const caseMetrics: CaseMetrics[] = [];
+const caseMetrics: IterationCaseRecord[] = [];
 
 function stripFences(s: string): string {
   const m = s.match(/```(?:json)?\s*\n([\s\S]*?)\n```/);
@@ -47,8 +58,12 @@ function stripFences(s: string): string {
 }
 
 describe('golden corpus eval', () => {
+  // Per-case timeout: real-mode refiner calls take 15-60s each; cached mode
+  // is always fast. Default vitest 5s timeout times out on the first real call.
+  const CASE_TIMEOUT_MS = process.env['FOS_EVAL_REAL'] === '1' ? 180_000 : 30_000;
+
   for (const name of caseDirs) {
-    it(`scores case: ${name}`, async () => {
+    it(`scores case: ${name}`, { timeout: CASE_TIMEOUT_MS }, async () => {
       const caseDir = join(corpusDir, name);
       const expected = ExpectedSchema.parse(
         JSON.parse(await readFile(join(caseDir, 'expected.json'), 'utf8')),
@@ -57,6 +72,45 @@ describe('golden corpus eval', () => {
 
       const tmp = await mkdtemp(join(tmpdir(), `fos-eval-${name}-`));
       try {
+        // Seed `slug_reuse_context` into the tmp project's session files so
+        // that analyzeSession -> loadAllSessions -> existingConceptSummaries
+        // feeds these slugs into the refiner's <existing-concepts> block.
+        // Without this, the refiner never sees prior slugs and slug-reuse
+        // metrics measure an unachievable behavior.
+        if (expected.slug_reuse_context.length > 0) {
+          const { mkdir, writeFile } = await import('node:fs/promises');
+          const sessionsDir = join(tmp, '.comprehension', 'sessions');
+          await mkdir(sessionsDir, { recursive: true });
+          for (const slug of expected.slug_reuse_context) {
+            const priorSessionId = `seed-${slug}`;
+            const content = `---
+session_id: ${priorSessionId}
+transcript_path: (seeded)
+analyzed_at: 2026-04-01T00:00:00Z
+refiner_version: v1.0.0
+refiner_prompt_hash: sha256:seed
+model: seed
+segment_count: 0
+concept_count: 1
+unknown_count: 0
+---
+
+## Concept: ${slug.split('-').map((w) => w[0]!.toUpperCase() + w.slice(1)).join(' ')}  {#${slug}}
+
+**Kind:** introduced
+**Confidence:** high
+**Depends on:** []
+**Files:**
+
+**Summary**
+Context concept seeded by eval harness so the refiner can exercise slug reuse.
+
+**Transcript refs:** []
+`;
+            await writeFile(join(sessionsDir, `2026-04-01-${priorSessionId}.md`), content, 'utf8');
+          }
+        }
+
         const invoke = makeEvalInvoke(caseDir);
         let rawRefinerResponse = '';
         const recordingInvoke: InvokeFn = async (args) => {
@@ -86,10 +140,16 @@ describe('golden corpus eval', () => {
         }
 
         const base = scoreCase(name, expected, parsedActual);
-        const metric: CaseMetrics = { ...base, schema_valid: schemaValid };
+        const metric: IterationCaseRecord = { ...base, schema_valid: schemaValid, raw_response: rawRefinerResponse };
         caseMetrics.push(metric);
 
-        expect(metric.forbidden_slug_violations).toBe(0);
+        // In cached mode, forbidden-slug violations are a hard invariant — we wrote
+        // the cache, so we can assert. In real mode, violations are a MEASUREMENT,
+        // not a pass/fail gate (Phase 2 iterates to reduce them). Let the run complete
+        // so the aggregate block + snapshot can record the honest numbers.
+        if (process.env['FOS_EVAL_REAL'] !== '1') {
+          expect(metric.forbidden_slug_violations).toBe(0);
+        }
       } finally {
         await rm(tmp, { recursive: true, force: true });
       }
@@ -99,6 +159,28 @@ describe('golden corpus eval', () => {
   it('aggregate report + baseline regression check', async () => {
     const agg = aggregate(caseMetrics);
     await maybeSnapshot(caseMetrics, agg);
+
+    if (process.env['FOS_EVAL_MODE'] === 'snapshot-delta') {
+      const { writeIterationDelta } = await import('./snapshot.js');
+      const { createHash } = await import('node:crypto');
+      const promptPath = join(here, '..', '..', 'prompts', 'refiner-v1.md');
+      const promptText = await readFile(promptPath, 'utf8');
+      const refinerHash = `sha256:${createHash('sha256').update(promptText).digest('hex')}`;
+      const mode: 'cached' | 'real' = process.env['FOS_EVAL_REAL'] === '1' ? 'real' : 'cached';
+      const provider: 'cli' | 'api' = process.env['FOS_EVAL_PROVIDER'] === 'api' ? 'api' : 'cli';
+      const model = process.env['FOS_EVAL_MODEL'] ?? 'claude-sonnet-4-6';
+      await writeIterationDelta({
+        targetDir: join(here, 'iterations'),
+        refinerHash,
+        mode,
+        provider,
+        model,
+        metrics: caseMetrics,
+        aggregate: agg,
+      });
+      console.log('wrote iteration delta');
+    }
+
     const baseline = await loadBaseline();
 
     console.log('\n=== eval aggregate ===');
@@ -106,6 +188,10 @@ describe('golden corpus eval', () => {
 
     if (process.env['FOS_EVAL_MODE'] === 'snapshot') {
       // In snapshot mode, baseline was just written; skip regression check.
+      return;
+    }
+    if (process.env['FOS_EVAL_MODE'] === 'snapshot-delta') {
+      // Delta mode: per-iteration log written; skip regression check.
       return;
     }
 
@@ -134,5 +220,43 @@ describe('golden corpus eval', () => {
     if (failures.length > 0) {
       throw new Error('Regression vs baseline.json:\n' + failures.join('\n'));
     }
+  });
+});
+
+describe('makeEvalInvoke — provider switching', () => {
+  const originalEnv = { ...process.env };
+  const afterEachCleanup = () => { process.env = { ...originalEnv }; };
+
+  it('uses cached mode when FOS_EVAL_REAL is not set', () => {
+    delete process.env['FOS_EVAL_REAL'];
+    delete process.env['FOS_EVAL_PROVIDER'];
+    const invoke = makeEvalInvoke('/tmp/nonexistent-case-dir');
+    expect(typeof invoke).toBe('function');
+    afterEachCleanup();
+  });
+
+  it('uses api provider when FOS_EVAL_PROVIDER=api + ANTHROPIC_API_KEY set', () => {
+    process.env['FOS_EVAL_REAL'] = '1';
+    process.env['FOS_EVAL_PROVIDER'] = 'api';
+    process.env['ANTHROPIC_API_KEY'] = 'sk-ant-test-placeholder';
+    const invoke = makeEvalInvoke('/tmp/nonexistent-case-dir');
+    expect(typeof invoke).toBe('function');
+    afterEachCleanup();
+  });
+
+  it('throws when api provider is selected without ANTHROPIC_API_KEY', () => {
+    process.env['FOS_EVAL_REAL'] = '1';
+    process.env['FOS_EVAL_PROVIDER'] = 'api';
+    delete process.env['ANTHROPIC_API_KEY'];
+    expect(() => makeEvalInvoke('/tmp/nonexistent-case-dir')).toThrow(/ANTHROPIC_API_KEY/);
+    afterEachCleanup();
+  });
+
+  it('uses cli provider when FOS_EVAL_REAL=1 and no provider set', () => {
+    process.env['FOS_EVAL_REAL'] = '1';
+    delete process.env['FOS_EVAL_PROVIDER'];
+    const invoke = makeEvalInvoke('/tmp/nonexistent-case-dir');
+    expect(typeof invoke).toBe('function');
+    afterEachCleanup();
   });
 });
