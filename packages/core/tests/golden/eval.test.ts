@@ -104,7 +104,13 @@ describe('golden corpus eval', () => {
         const metric: IterationCaseRecord = { ...base, schema_valid: schemaValid, raw_response: rawRefinerResponse };
         caseMetrics.push(metric);
 
-        expect(metric.forbidden_slug_violations).toBe(0);
+        // In cached mode, forbidden-slug violations are a hard invariant — we wrote
+        // the cache, so we can assert. In real mode, violations are a MEASUREMENT,
+        // not a pass/fail gate (Phase 2 iterates to reduce them). Let the run complete
+        // so the aggregate block + snapshot can record the honest numbers.
+        if (process.env['FOS_EVAL_REAL'] !== '1') {
+          expect(metric.forbidden_slug_violations).toBe(0);
+        }
       } finally {
         await rm(tmp, { recursive: true, force: true });
       }
