@@ -1,0 +1,11 @@
+{
+  "required_slugs": ["idempotent-payment-webhook"],
+  "slug_reuse_context": [],
+  "required_reasoning_substrings": {
+    "idempotent-payment-webhook": ["conditional", "unique"]
+  },
+  "forbidden_slugs": ["read-then-write-locking", "mutex-webhook"],
+  "tags": ["implicit-reasoning", "synthetic"],
+  "difficulty": "hard",
+  "notes": "The assistant gives almost no prose reasoning — the decision to switch from read-then-write to a conditional update plus a unique partial index lives entirely in the code diff. Tests whether the refiner can infer the architectural decision (make the webhook idempotent via conditional update + DB-level uniqueness) from code changes, or else appropriately flag the reasoning as unknown. Either capturing the concept with implicit reasoning OR emitting an 'unknown' about the webhook fix would count as acceptable; the forbidden slugs guard against wrong inferences (locking/mutex patterns that were not introduced)."
+}

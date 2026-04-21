@@ -1,0 +1,21 @@
+{
+  "concepts": [
+    {
+      "slug": "idempotent-payment-webhook",
+      "name": "Idempotent payment webhook handler",
+      "kind": "introduced",
+      "summary": "Make the payment webhook idempotent by replacing read-then-write with a conditional update guarded on status, and adding a unique partial index on paidEventId at the database layer.",
+      "reasoning": [
+        "Replaced the read-then-write pattern with a single conditional updateWhere that only transitions an order from non-paid to paid, eliminating the race window where two concurrent webhook deliveries both observed status != 'paid'.",
+        "Skipped fulfillment when updatedCount is zero so a losing concurrent update no longer double-queues the order.",
+        "Added a unique partial index on orders.paid_event_id so duplicate webhook deliveries carrying the same event id are rejected at the database level as a second defense.",
+        "Reasoning is inferred from the code diff — the assistant did not spell out 'because of a race condition' but the shape of the change (conditional update + event-id uniqueness) is the standard idempotency pattern for this bug class."
+      ],
+      "depends_on": [],
+      "files": ["src/webhooks/payment.ts", "migrations/0042_orders_paid_event_unique.sql"],
+      "transcript_refs": [1, 3, 5, 6],
+      "confidence": "medium"
+    }
+  ],
+  "unknowns": []
+}
