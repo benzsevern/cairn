@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFile, stat } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -92,16 +93,8 @@ describe('@fos/plugin packaging smoke', () => {
   });
 
   describe('install scaffolding', () => {
-    it('install/post-install.js exists', async () => {
-      const p = join(pluginRoot, 'install', 'post-install.js');
-      expect(await fileExists(p)).toBe(true);
-    });
-
-    it('install/package.json exists and declares type === "commonjs"', async () => {
-      const p = join(pluginRoot, 'install', 'package.json');
-      expect(await fileExists(p)).toBe(true);
-      const json = (await readJson(p)) as { type?: unknown };
-      expect(json.type).toBe('commonjs');
+    it('no install/ directory ships (post-install script was deleted)', () => {
+      expect(existsSync(resolve(pluginRoot, 'install'))).toBe(false);
     });
   });
 });
