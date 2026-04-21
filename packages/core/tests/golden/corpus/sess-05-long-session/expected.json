@@ -4,6 +4,11 @@
     "ccms-cluster-comparison",
     "spec-review-loop"
   ],
+  "slug_aliases": {
+    "er-benchmark-design": ["nppes-er-benchmark", "er-benchmark", "nppes-benchmark"],
+    "ccms-cluster-comparison": ["ccms-ground-truth-free-comparison", "ccms-comparison-methodology"],
+    "spec-review-loop": ["spec-review-iteration-loop", "brainstorm-spec-review-loop"]
+  },
   "slug_reuse_context": [],
   "required_reasoning_substrings": {
     "er-benchmark-design": ["NPPES", "Dedupe"],

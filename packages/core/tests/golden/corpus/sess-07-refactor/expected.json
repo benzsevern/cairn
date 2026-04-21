@@ -4,6 +4,11 @@
     "preflight-sample-run",
     "runtime-circuit-breaker"
   ],
+  "slug_aliases": {
+    "domain-aware-autoconfig": ["domain-aware-auto-config", "auto-configure-df", "autoconfig-domain-presets"],
+    "preflight-sample-run": ["preflight-system", "preflight-sample", "preflight-stage"],
+    "runtime-circuit-breaker": ["circuit-breaker"]
+  },
   "slug_reuse_context": ["auto-configure-df"],
   "required_reasoning_substrings": {
     "domain-aware-autoconfig": ["domain", "preset"],

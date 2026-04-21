@@ -1,5 +1,13 @@
 {
   "required_slugs": ["mcp-resources-list-handler"],
+  "slug_aliases": {
+    "mcp-resources-list-handler": [
+      "mcp-empty-resource-handlers",
+      "mcp-empty-resource-prompt-handlers",
+      "mcp-resources-prompts-stub-handlers",
+      "mcp-empty-resources-prompts-handlers"
+    ]
+  },
   "slug_reuse_context": [],
   "required_reasoning_substrings": {
     "mcp-resources-list-handler": ["-32601", "resources/list"]
