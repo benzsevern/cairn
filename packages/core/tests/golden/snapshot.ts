@@ -2,6 +2,7 @@ import { writeFile, readFile, mkdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { CaseMetrics, Aggregate } from './metrics.js';
+import { SHIPPED_REFINER_VERSION } from '../../src/refiner/load-prompt.js';
 
 export interface IterationCaseRecord extends CaseMetrics {
   raw_response?: string;
@@ -46,7 +47,7 @@ export async function maybeSnapshot(cases: CaseMetrics[], agg: Aggregate): Promi
 
   const baseline = {
     generated_at: new Date().toISOString(),
-    refiner_version: 'v1.0.0',
+    refiner_version: SHIPPED_REFINER_VERSION,
     refiner_prompt_hash: refinerHash,
     mode: process.env['FOS_EVAL_REAL'] === '1' ? 'real' : 'cached',
     corpus_size: cases.length,

@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-04-21T20:18:19.765Z",
-  "refiner_version": "v1.0.0",
-  "refiner_prompt_hash": "sha256:70e9e5220ce76c988b3f5258a16509aa1ab72fef737dc8fb0901a0fdaa0ad692",
+  "generated_at": "2026-04-21T23:25:40.454Z",
+  "refiner_version": "v1.1.0",
+  "refiner_prompt_hash": "sha256:fbd26ed7ca99c548ac7d2e4296335e0f49aa7b8f95adcabd111c8433ab730675",
   "mode": "cached",
   "corpus_size": 15,
   "tolerance": {
