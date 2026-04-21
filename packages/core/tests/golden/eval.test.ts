@@ -72,6 +72,45 @@ describe('golden corpus eval', () => {
 
       const tmp = await mkdtemp(join(tmpdir(), `fos-eval-${name}-`));
       try {
+        // Seed `slug_reuse_context` into the tmp project's session files so
+        // that analyzeSession -> loadAllSessions -> existingConceptSummaries
+        // feeds these slugs into the refiner's <existing-concepts> block.
+        // Without this, the refiner never sees prior slugs and slug-reuse
+        // metrics measure an unachievable behavior.
+        if (expected.slug_reuse_context.length > 0) {
+          const { mkdir, writeFile } = await import('node:fs/promises');
+          const sessionsDir = join(tmp, '.comprehension', 'sessions');
+          await mkdir(sessionsDir, { recursive: true });
+          for (const slug of expected.slug_reuse_context) {
+            const priorSessionId = `seed-${slug}`;
+            const content = `---
+session_id: ${priorSessionId}
+transcript_path: (seeded)
+analyzed_at: 2026-04-01T00:00:00Z
+refiner_version: v1.0.0
+refiner_prompt_hash: sha256:seed
+model: seed
+segment_count: 0
+concept_count: 1
+unknown_count: 0
+---
+
+## Concept: ${slug.split('-').map((w) => w[0]!.toUpperCase() + w.slice(1)).join(' ')}  {#${slug}}
+
+**Kind:** introduced
+**Confidence:** high
+**Depends on:** []
+**Files:**
+
+**Summary**
+Context concept seeded by eval harness so the refiner can exercise slug reuse.
+
+**Transcript refs:** []
+`;
+            await writeFile(join(sessionsDir, `2026-04-01-${priorSessionId}.md`), content, 'utf8');
+          }
+        }
+
         const invoke = makeEvalInvoke(caseDir);
         let rawRefinerResponse = '';
         const recordingInvoke: InvokeFn = async (args) => {
