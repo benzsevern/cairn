@@ -1,0 +1,70 @@
+{
+  "generated_at": "2026-04-21T17:19:15.705Z",
+  "refiner_version": "v1.0.0",
+  "refiner_prompt_hash": "sha256:70e9e5220ce76c988b3f5258a16509aa1ab72fef737dc8fb0901a0fdaa0ad692",
+  "mode": "cached",
+  "corpus_size": 3,
+  "tolerance": {
+    "concept_recall_pct": 0.05,
+    "schema_valid_pct": 0.02,
+    "reasoning_preservation_pct": 0.1
+  },
+  "aggregate": {
+    "concept_recall": {
+      "p50": 1,
+      "p25": 1,
+      "mean": 1
+    },
+    "slug_reuse_precision": {
+      "p50": 1,
+      "p25": 1,
+      "mean": 1,
+      "applicable_cases": 1
+    },
+    "reasoning_preservation": {
+      "p50": 1,
+      "p25": 1,
+      "mean": 1
+    },
+    "schema_valid_rate": 1,
+    "forbidden_violations": 0
+  },
+  "per_case": [
+    {
+      "slug": "sess-01-greeting",
+      "tags": [
+        "no-concepts-expected",
+        "synthetic"
+      ],
+      "concept_recall": 1,
+      "slug_reuse_precision": null,
+      "reasoning_preservation": 1,
+      "schema_valid": true,
+      "forbidden_slug_violations": 0
+    },
+    {
+      "slug": "sess-02-fuzzy",
+      "tags": [
+        "algorithmic-choice",
+        "synthetic"
+      ],
+      "concept_recall": 1,
+      "slug_reuse_precision": null,
+      "reasoning_preservation": 1,
+      "schema_valid": true,
+      "forbidden_slug_violations": 0
+    },
+    {
+      "slug": "sess-03-refine",
+      "tags": [
+        "slug-reuse",
+        "synthetic"
+      ],
+      "concept_recall": 1,
+      "slug_reuse_precision": 1,
+      "reasoning_preservation": 1,
+      "schema_valid": true,
+      "forbidden_slug_violations": 0
+    }
+  ]
+}
