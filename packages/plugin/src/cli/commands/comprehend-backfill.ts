@@ -160,6 +160,7 @@ export async function runBackfillSubcommand(
       kind: 'backfill_batch',
       session_id: '_batch',
       timestamp: now().toISOString(),
+      mode: 'backfill',
       analyzed: report.analyzed,
       failed: report.failed.length,
       total_cost_usd: report.total_cost_usd,
