@@ -300,10 +300,16 @@ describe('writeIterationDelta', () => {
 
 - [ ] **Step 3: Implement `writeIterationDelta` in `snapshot.ts`**
 
+The per-case records include `raw_response` — the actual refiner stdout text — so Phase 2's iteration subagent can diagnose weak cases without re-running the refiner.
+
 ```ts
 import { writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { CaseMetrics, Aggregate } from './metrics.js';
+
+export interface IterationCaseRecord extends CaseMetrics {
+  raw_response?: string;        // the refiner's stdout text, for diagnosis
+}
 
 export interface IterationDeltaArgs {
   targetDir: string;             // absolute path to iterations/ dir
@@ -311,7 +317,7 @@ export interface IterationDeltaArgs {
   mode: 'cached' | 'real';
   provider: 'cli' | 'api';
   model: string;
-  metrics: CaseMetrics[];
+  metrics: IterationCaseRecord[];
   aggregate: Aggregate;
 }
 
@@ -334,6 +340,11 @@ export async function writeIterationDelta(args: IterationDeltaArgs): Promise<str
   return path;
 }
 ```
+
+**Wiring note for Task 2 Step 5 (`eval.test.ts` modification):** the `recordingInvoke` wrapper in the existing eval flow already captures raw response text per case. Thread it into the `CaseMetrics` or a parallel array so `writeIterationDelta` has access. Exact plumbing:
+
+1. In the per-case `it(...)` block, after `scoreCase`, store the captured `rawRefinerResponse` alongside the case metric: `caseMetrics.push({ ...metric, raw_response: rawRefinerResponse });` (widen the type to `IterationCaseRecord`).
+2. In the final aggregate block where `writeIterationDelta` is called, pass the widened array.
 
 - [ ] **Step 4: Wire `--snapshot-delta` into `run-eval.mjs`**
 
@@ -442,6 +453,8 @@ This is the authoring-heavy part. The subagent dispatching this work reads the a
 
 1. Enumerate JSONLs in the allowed dirs. For each, read the first JSON line → extract `cwd` → double-check it's one of the two roots.
 2. Pick ONE representative transcript for the target theme. Criteria per theme documented below.
+
+**Fallback if no representative transcript exists** (e.g., no `refactor`-flavored session is in scope): skip that theme and compensate with one extra synthetic case in Tasks 11–17 covering the same behavior pattern. Record the skip in the completion notes (Task 27).
 3. Run `node tools/scrub-transcript.mjs <input> <output> [--redact-word X]*` — output goes to the new case's `transcript.jsonl`.
 4. Present the scrubbed `transcript.jsonl` to the user for review. Wait for approval.
 5. Author `expected.json` — human-reviewable set of `required_slugs`, `forbidden_slugs`, `required_reasoning_substrings`, `tags`, `difficulty`. **Subagent must NOT run the refiner against this case during authoring** (corpus-gaming mitigation per spec §4.1).
@@ -651,7 +664,7 @@ You are proposing a refiner prompt edit. You are NOT the refiner itself.
 
 1. Current refiner prompt: `packages/core/prompts/refiner-v1.md` (read the file).
 2. Latest eval metrics: `packages/core/tests/golden/iterations/<NEWEST>.json` (read the file).
-3. Per-case raw refiner outputs: [attached inline by the controller OR pointed at via a path — see below].
+3. Per-case raw refiner outputs: read them directly from `iterations/<NEWEST>.json` — each `per_case[i]` entry has a `raw_response` field containing the actual refiner stdout for that case. For weak cases, compare `raw_response` to the case's `expected.json` to identify the specific gap.
 4. Target bars:
    - concept_recall ≥ 0.90
    - slug_reuse_precision ≥ 0.95
@@ -682,14 +695,7 @@ Return:
 - A 1-paragraph rationale per hunk: what case(s) motivated this change, what the expected impact is.
 ```
 
-The controller (you, in this case me) attaches the per-case raw outputs by running:
-
-```bash
-# For each weak case, pipe the case's cached-response.json or a fresh refiner run's raw output
-cat packages/core/tests/golden/corpus/<weak-case-slug>/cached-response.json
-```
-
-Or points at the iteration file which already has `per_case` embedded — that's usually enough signal.
+(No extra attachment step — `iterations/<NEWEST>.json` already embeds `per_case[i].raw_response` for every case, produced by Task 2's `writeIterationDelta` wiring.)
 
 - [ ] **E. Review the subagent's diff**
 
