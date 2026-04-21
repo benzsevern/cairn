@@ -1,0 +1,11 @@
+{
+  "required_slugs": ["api-response-cache"],
+  "slug_reuse_context": [],
+  "required_reasoning_substrings": {
+    "api-response-cache": ["redis", "replicas"]
+  },
+  "forbidden_slugs": ["in-memory-lru-cache", "lru-cache"],
+  "tags": ["conflicting-decisions", "synthetic"],
+  "difficulty": "hard",
+  "notes": "Assistant initially picks in-memory LRU, then pivots to Redis after user corrects the deployment topology. Expected output captures only the final (pivoted) decision — Redis — not the rejected in-memory LRU path. Forbidden slugs guard against refiners that dutifully record both the rejected and accepted options as separate concepts."
+}
