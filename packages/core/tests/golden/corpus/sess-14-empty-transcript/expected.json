@@ -1,0 +1,9 @@
+{
+  "required_slugs": [],
+  "slug_reuse_context": [],
+  "required_reasoning_substrings": {},
+  "forbidden_slugs": ["thinking", "planning", "deliberation"],
+  "tags": ["empty-transcript", "synthetic"],
+  "difficulty": "easy",
+  "notes": "Single user message with no assistant reply — a session that effectively never started. The refiner must emit no concepts. Forbidden slugs guard against hallucinating pseudo-concepts from the user's stalling text."
+}
