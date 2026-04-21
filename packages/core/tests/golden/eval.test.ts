@@ -58,8 +58,12 @@ function stripFences(s: string): string {
 }
 
 describe('golden corpus eval', () => {
+  // Per-case timeout: real-mode refiner calls take 15-60s each; cached mode
+  // is always fast. Default vitest 5s timeout times out on the first real call.
+  const CASE_TIMEOUT_MS = process.env['FOS_EVAL_REAL'] === '1' ? 180_000 : 30_000;
+
   for (const name of caseDirs) {
-    it(`scores case: ${name}`, async () => {
+    it(`scores case: ${name}`, { timeout: CASE_TIMEOUT_MS }, async () => {
       const caseDir = join(corpusDir, name);
       const expected = ExpectedSchema.parse(
         JSON.parse(await readFile(join(caseDir, 'expected.json'), 'utf8')),
