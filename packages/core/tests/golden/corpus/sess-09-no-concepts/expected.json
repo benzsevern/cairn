@@ -1,0 +1,12 @@
+{
+  "required_slugs": [],
+  "slug_reuse_context": [],
+  "required_reasoning_substrings": {},
+  "forbidden_slugs": [
+    "docx-python-scripting",
+    "resume-update-automation",
+    "xml-oxml-element-insertion"
+  ],
+  "tags": ["no-concepts-expected", "mined"],
+  "notes": "Personal task: update a Word .docx resume file with new work the user has been doing. Assistant uses python-docx to read, then writes ad-hoc python -c scripts to insert new sections (Summary, Technical Proficiencies, Projects). It hits minor bugs (element insertion order reversed because of addprevious semantics) and iterates until the doc looks right. No architectural decision is being made — it's mechanical document manipulation against a personal artifact, not a codebase decision. The forbidden slugs guard against the refiner trying to promote 'how to use python-docx' or 'how to insert OXML elements' into architectural concepts."
+}
