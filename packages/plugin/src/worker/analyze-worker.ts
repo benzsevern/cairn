@@ -38,11 +38,14 @@ async function writePending(projectRoot: string, q: PendingQueueFile): Promise<v
 }
 
 function spawnChildDefault(args: { projectRoot: string; transcriptPath: string; sessionId: string }): void {
-  // The worker file's own URL is what we re-invoke. At runtime (post-bundle)
-  // this resolves to the built dist/worker/analyze-worker.js.
-  const selfUrl = import.meta.url;
-  const selfPath = fileURLToPath(selfUrl);
-  spawn('node', [selfPath, args.projectRoot, args.transcriptPath, args.sessionId], {
+  // See equivalent comment in src/hooks/stop.ts: this function is bundled
+  // into a shared chunk, so `import.meta.url` points at the chunk (not the
+  // worker entry). Use `process.argv[1]` — the current Node entry script —
+  // which always resolves to the bundled `dist/worker/analyze-worker.js`
+  // when the worker chains its successor.
+  const argv1 = process.argv[1] ?? '';
+  const workerPath = argv1 || fileURLToPath(import.meta.url);
+  spawn(process.execPath, [workerPath, args.projectRoot, args.transcriptPath, args.sessionId], {
     detached: true,
     stdio: 'ignore',
     windowsHide: true,

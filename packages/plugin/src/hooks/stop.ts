@@ -68,8 +68,15 @@ async function queuePending(
 }
 
 function spawnChildDefault(args: { projectRoot: string; transcriptPath: string; sessionId: string }): void {
-  const selfPath = fileURLToPath(import.meta.url);
-  const workerPath = resolve(dirname(selfPath), '..', 'worker', 'analyze-worker.js');
+  // IMPORTANT: don't use `import.meta.url` here. This function is bundled into
+  // a shared chunk at `dist/chunk-XXXX.js`, so `import.meta.url` points to the
+  // chunk — not to `dist/hooks/stop.js` — and `resolve(dirname, '..', 'worker', …)`
+  // would land outside `dist/`. Use `process.argv[1]` (the entry script Node
+  // was invoked with) instead; it's always the actual hook entry.
+  const argv1 = process.argv[1] ?? '';
+  const workerPath = argv1
+    ? resolve(dirname(argv1), '..', 'worker', 'analyze-worker.js')
+    : resolve(dirname(fileURLToPath(import.meta.url)), '..', 'worker', 'analyze-worker.js');
   spawn(process.execPath, [workerPath, args.projectRoot, args.transcriptPath, args.sessionId], {
     detached: true,
     stdio: 'ignore',
