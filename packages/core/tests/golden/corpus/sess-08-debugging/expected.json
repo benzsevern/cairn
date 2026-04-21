@@ -1,0 +1,11 @@
+{
+  "required_slugs": ["npx-cache-eperm-clear", "greptile-bearer-env-var"],
+  "slug_reuse_context": [],
+  "required_reasoning_substrings": {
+    "npx-cache-eperm-clear": ["EPERM", "npm-cache"],
+    "greptile-bearer-env-var": ["GREPTILE_API_KEY", "Bearer"]
+  },
+  "forbidden_slugs": ["oauth-device-flow", "linear-oauth", "restart-claude-code", "rename-txt-to-md"],
+  "tags": ["debugging", "mined", "bug-fix"],
+  "notes": "User is debugging why three MCP servers (Context7, Playwright, Serena) show as 'failed' in Claude Code and two (Greptile, Linear) show 'needs authentication'. The session is iterative triage: reproduce Context7 locally, catch an EPERM permission error from a corrupted npx cache dir on `D:/AppData_Local/npm-cache/_npx/eea2bd7412d4593b`, clear it; then debug Greptile auth by setting GREPTILE_API_KEY as a proper Windows env var (setx) and reverting the cached plugin .mcp.json to reference ${GREPTILE_API_KEY}. Linear is a distractor — turns out to just need OAuth via the MCP dialog, not API key config (forbidden slug). Multiple follow-ups (rename .txt to .md, restart Claude Code for setx to take effect) are also operational noise, not architectural."
+}
