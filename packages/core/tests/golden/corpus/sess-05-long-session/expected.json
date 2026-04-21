@@ -1,0 +1,16 @@
+{
+  "required_slugs": [
+    "er-benchmark-design",
+    "ccms-cluster-comparison",
+    "spec-review-loop"
+  ],
+  "slug_reuse_context": [],
+  "required_reasoning_substrings": {
+    "er-benchmark-design": ["NPPES", "Dedupe"],
+    "ccms-cluster-comparison": ["ground truth", "Adjusted Rand"],
+    "spec-review-loop": ["reviewer", "iterate"]
+  },
+  "forbidden_slugs": ["memory-feedback-note-update", "resource-intensive-warning"],
+  "tags": ["long-session", "mined", "multiple-concepts"],
+  "notes": "Long multi-topic session (589 events, 52 user turns): user requests a blog post comparing Dedupe.io vs Golden Suite on NPPES data, pivots through benchmark design (dataset choice, tool choice, sample size), lands on CCMS cluster comparison + sensitivity analysis as the honest angle without ground truth, then writes spec + plan through the superpowers:brainstorming / writing-plans / spec-reviewer loop. Three distinct architectural concepts: (1) the benchmark design itself, (2) the CCMS-based comparison methodology that avoids needing ground truth, (3) the iterative spec-review loop pattern. Forbidden slugs are operational noise — an unrelated memory-file update the assistant made about resource-intensive runs."
+}
