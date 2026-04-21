@@ -54,58 +54,101 @@ A self-contained Claude Code plugin that installs `@fos/core` behavior into the 
 
 ## 2. Architecture & Components
 
+> **Post-probe revision:** This section was substantially revised after the Phase 0 probe established that (a) Claude Code slash commands are markdown prompt templates loaded as LLM instructions, not executable scripts, and (b) plugin manifests live at `.claude-plugin/plugin.json`, not the root. See `docs/superpowers/plans/2026-04-21-fos-v2-plugin-probe-findings.md` for the empirical ground truth this section is built on.
+
 ### 2.1 New repo artifact
 
 ```
 packages/plugin/
-├── package.json              # @fos/plugin, type: module
+├── package.json                    # @fos/plugin, type: module
 ├── tsconfig.json
-├── tsup.config.ts            # bundles @fos/core + deps inline into each entry
+├── tsup.config.ts                  # bundles @fos/core + deps inline
 ├── README.md
-├── plugin.json               # Claude Code plugin manifest
+├── .claude-plugin/
+│   ├── plugin.json                 # Claude Code plugin manifest
+│   └── marketplace.json            # self-wrapper for local install flow
+├── commands/                       # LLM prompt templates (NOT compiled)
+│   ├── comprehend.md
+│   ├── comprehend-init.md
+│   ├── comprehend-status.md
+│   └── comprehend-backfill.md
+├── hooks/
+│   └── hooks.json                  # Claude Code hook-config manifest
+├── install/
+│   └── post-install.js             # install-time consent + install-ack
 ├── src/
 │   ├── hooks/
-│   │   ├── stop.ts
+│   │   ├── stop.ts                 # compiles to dist/hooks/stop.js
 │   │   └── session-start.ts
-│   ├── commands/
-│   │   ├── comprehend.ts
-│   │   ├── comprehend-init.ts
-│   │   ├── comprehend-status.ts
-│   │   └── comprehend-backfill.ts
+│   ├── cli/
+│   │   ├── bin.ts                  # single CLI entry — dist/cli/bin.js
+│   │   └── commands/
+│   │       ├── comprehend.ts       # subcommand implementations imported by bin.ts
+│   │       ├── comprehend-init.ts
+│   │       ├── comprehend-status.ts
+│   │       └── comprehend-backfill.ts
 │   ├── worker/
-│   │   └── analyze-worker.ts # detached subprocess entry
-│   ├── lock.ts               # per-project analysis.lock helpers
-│   ├── log.ts                # structured log writer
-│   ├── consent.ts            # install-ack + per-project consent record
-│   ├── discover-project.ts   # project-root + Claude Code session-id resolution
-│   └── index.ts              # internal barrel
+│   │   └── analyze-worker.ts       # detached subprocess entry
+│   ├── lock.ts                     # per-project analysis.lock helpers
+│   ├── log.ts                      # structured log writer
+│   ├── consent.ts                  # install-ack + per-project consent record
+│   ├── discover-project.ts         # project-root + Claude Code session-id resolution
+│   └── plugin-paths.ts             # barrel re-exporting @fos/core's path helpers
 └── tests/
-    ├── {lock,log,consent,discover-project}.test.ts
+    ├── unit/
+    │   ├── {lock,log,consent,discover-project,plugin-paths}.test.ts
     ├── hooks/{stop,session-start}.test.ts
-    ├── commands/{comprehend-init,comprehend-status,comprehend-backfill}.test.ts
-    └── integration/plugin-smoke.test.ts
+    ├── cli/commands/{comprehend-init,comprehend-status,comprehend-backfill}.test.ts
+    └── integration/{plugin-smoke,worker-chain}.test.ts
 ```
+
+**Key distinction from the pre-probe draft:**
+
+- **Commands are `.md` files**, not `.ts` files. They live at `commands/<name>.md` (NOT inside `src/`). They are not compiled. At plugin-install time they are copied as-is into the plugin cache; at `/comprehend-name` invocation Claude Code loads their contents as LLM instructions.
+- **Imperative logic lives in the CLI** at `src/cli/` (compiled to `dist/cli/bin.js`). The bin receives subcommand names as argv and dispatches to the `src/cli/commands/*.ts` implementations. Each markdown template tells Claude to invoke `node "${CLAUDE_PLUGIN_ROOT}/dist/cli/bin.js" <subcommand> <args>` via the Bash tool.
+- **Interactive input** (e.g., consent confirmation, backfill cost approval) is not readline. The markdown template tells Claude to use the `AskUserQuestion` LLM tool; then the accept/reject choice is passed as a CLI flag.
 
 ### 2.2 Bundling model
 
 `@fos/plugin` has `"@fos/core": "workspace:*"` as a dev-time dep for type inference. tsup is configured to **inline** `@fos/core` + its runtime deps (`zod`, `gray-matter`, `execa`, `commander`, plus the `cytoscape` template bundle from the viewer) into each entry file. Resulting `dist/` is fully self-contained — no `node_modules` lookup at runtime.
 
-The refiner prompt markdown file (`refiner-v1.md`) and the viewer's bundled template are copied from `@fos/core`'s shipped `prompts/` and `dist/viewer/` into the plugin's `dist/` via tsup's `onSuccess` hook. The walking-`package.json` resolver in `@fos/core`'s `load-prompt.ts` still works because `@fos/plugin/package.json` provides the anchor at the plugin's install location.
+tsup has **four entries** (not seven):
+
+1. `src/hooks/stop.ts` → `dist/hooks/stop.js`
+2. `src/hooks/session-start.ts` → `dist/hooks/session-start.js`
+3. `src/cli/bin.ts` → `dist/cli/bin.js` (imports and dispatches the subcommands; all bundled in)
+4. `src/worker/analyze-worker.ts` → `dist/worker/analyze-worker.js`
+
+The refiner prompt markdown file (`refiner-v1.md`) and the viewer's bundled template are copied from `@fos/core`'s shipped `prompts/` and `dist/viewer/` into the plugin's `dist/` via tsup's `onSuccess` hook. The walking-`package.json` resolver in `@fos/core`'s `load-prompt.ts` still works because `@fos/plugin/package.json` provides the anchor at the plugin's install location. `${CLAUDE_PLUGIN_ROOT}` from Claude Code's hook env points at the installed plugin root, so `${CLAUDE_PLUGIN_ROOT}/dist/prompts/refiner-v1.md` resolves correctly post-install.
 
 ### 2.3 Entry points
 
-Each hook and command compiles to its own tsup entry (no shared-chunk complexity):
+Three kinds of entries:
 
-- `hooks/stop.ts` — receives Claude Code's hook-event payload, validates opt-in, acquires lock or queues to pending, spawns `worker/analyze-worker.ts` detached, returns exit 0 immediately.
-- `hooks/session-start.ts` — reads logs + pending queue + manifest; emits at most one line.
-- `commands/*.ts` — commander-style entries that delegate to `@fos/core`'s public API or to the plugin's helper modules.
-- `worker/analyze-worker.ts` — detached process entry: runs `analyzeSession` then `rebuildProjectView`, logs, releases lock, drains one pending queue item by self-chaining a fresh worker, exits.
+**Hooks** (declarative, referenced in `hooks/hooks.json`):
+
+- `dist/hooks/stop.js` — receives Claude Code's Stop hook payload on stdin (JSON with `session_id`, `transcript_path`, `cwd`, `permission_mode`, `hook_event_name`). Validates opt-in, acquires lock or queues to pending, spawns the worker detached, returns exit 0 immediately (< 500 ms). Writes JSON response to stdout if needed.
+- `dist/hooks/session-start.js` — receives SessionStart payload on stdin. Reads logs + pending queue + manifest; emits at most one message via the stdout response JSON (`{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"…"}}`).
+
+**CLI** (imperative, invoked by command markdown via Bash):
+
+- `dist/cli/bin.js` — single binary exposing `init`, `analyze`, `rebuild`, `backfill`, `status` subcommands. The commander-style args match what the command markdown invokes. Error handling and exit codes are the contract the markdown templates document.
+
+**Worker** (detached subprocess, spawned by the Stop hook):
+
+- `dist/worker/analyze-worker.js` — runs `analyzeSession` then `rebuildProjectView`, writes structured logs, releases the lock, drains one pending queue item by self-chaining a fresh worker, exits.
+
+**Commands** (LLM prompt templates, NOT compiled):
+
+- `commands/*.md` — short markdown files with optional YAML frontmatter. They describe (for the LLM) how to accomplish each user-facing command, referencing the CLI via `${CLAUDE_PLUGIN_ROOT}/dist/cli/bin.js` and the `AskUserQuestion` tool for interactivity.
 
 ### 2.4 Boundaries
 
 - The plugin **never reaches into `@fos/core` internals** — only its public API (`analyzeSession`, `rebuildProjectView`, `backfill`, `loadRefinerPrompt`, `VERSION`, plus the types).
-- The plugin **never duplicates logic** from `@fos/core`. Paths come from `core`'s `paths.ts`; manifest read/write from `core`'s `writer/manifest.ts`. Plugin contributes only plugin-specific logic: hooks, locks, logs, consent, project discovery.
-- `plugin.json` is static and declares all hooks + commands at install time. No dynamic registration.
+- The plugin **never duplicates logic** from `@fos/core`. Paths come from `core`'s `paths.ts`; manifest read/write from `core`'s `writer/manifest.ts`. Plugin contributes only plugin-specific logic: hooks, locks, logs, consent, project discovery, command markdown.
+- `plugin.json` and `hooks/hooks.json` are **static** and declare all hooks + command auto-discovery at install time. No dynamic registration. `commands/` is auto-discovered by Claude Code's default.
+- Command markdown files **only drive the CLI**. They never contain executable code; they contain directives for Claude.
+- The CLI **is the single imperative surface**. All state mutations (consent, init, analyze, rebuild, backfill, status) go through it.
 
 ---
 
@@ -166,7 +209,34 @@ Empty marker file touched by `/comprehend status --ack`. SessionStart compares f
 
 ### 3.7 Machine-wide install acknowledgment
 
-`~/.claude/fos-install-ack` — empty marker file touched by the plugin's post-install step. `/comprehend init` checks for its existence before allowing per-project opt-in.
+`~/.claude/fos-install-ack` — empty marker file touched by the plugin's post-install step. `/comprehend init` (via its CLI subcommand) checks for its existence before allowing per-project opt-in.
+
+### 3.8 `.claude-plugin/marketplace.json` — self-wrapper for local install
+
+Claude Code's plugin installation flow is marketplace-first: `claude plugins install <name>` requires a marketplace to be registered. For local development and internal distribution before Plan 3's publication, the plugin ships a minimal marketplace manifest that wraps itself:
+
+```json
+{
+  "name": "fos-dev",
+  "owner": { "name": "FOS" },
+  "plugins": [
+    {
+      "name": "comprehend-fos",
+      "source": { "source": "./", "type": "local" },
+      "description": "Passive comprehension layer for Claude Code sessions"
+    }
+  ]
+}
+```
+
+The exact field names come from the Phase 0 probe; the shape above is the validated form. Developers install the plugin locally via:
+
+```
+claude plugins marketplace add ./packages/plugin
+claude plugins install comprehend-fos@fos-dev
+```
+
+A `pnpm install-plugin-local` script in `@fos/plugin`'s `package.json` wraps these two steps.
 
 ---
 
@@ -174,27 +244,40 @@ Empty marker file touched by `/comprehend status --ack`. SessionStart compares f
 
 ### 4.1 Install (one-time, per machine)
 
-`claude plugins install file:./packages/plugin` triggers:
+Two steps (no `file:` shortcut exists — confirmed by Phase 0 probe):
 
-1. Plugin directory is placed in Claude Code's plugin cache.
-2. Post-install step prints the data-flow consent text and prompts `Press Enter to acknowledge`.
-3. On acknowledgment, touches `~/.claude/fos-install-ack`.
-4. Hooks + commands are registered per the manifest.
+```
+claude plugins marketplace add ./packages/plugin     # registers the self-wrapper
+claude plugins install comprehend-fos@fos-dev         # copies plugin to ~/.claude/plugins/cache/
+```
+
+On install:
+
+1. Plugin directory is copied to `~/.claude/plugins/cache/fos-dev/comprehend-fos/<version>/`.
+2. Post-install step (`install/post-install.js`) runs: prints data-flow consent text, offers `Press Enter to acknowledge` when stdin is TTY, touches `~/.claude/fos-install-ack`.
+3. Hooks (from `hooks/hooks.json`) and commands (from `commands/*.md`) are registered per the manifest.
 
 Plugin is now installed but inert. Nothing analyzes anything until a project opts in.
 
 ### 4.2 Per-project opt-in (`/comprehend init`)
 
-Running the command inside a project root:
+Three layers: the markdown prompt template, the LLM execution, and the CLI subcommand.
 
-1. Check `~/.claude/fos-install-ack`. If missing → error with instructions to rerun install.
-2. If `.comprehension/.fos/consent.json` already exists → idempotent no-op (report current status).
-3. Prompt the user: "Opt this project in for automatic analysis?" with estimated backfill cost.
-4. On `y`:
-   - Delegate to `@fos/core.runInit` to create `.comprehension/` skeleton.
-   - Write `consent.json`.
-   - Offer the backfill wizard (same flow as `/comprehend backfill`); can be skipped.
-5. On `n`: exit 0, nothing written.
+**Markdown template** (`commands/comprehend-init.md`) instructs Claude to:
+
+1. Run `node "${CLAUDE_PLUGIN_ROOT}/dist/cli/bin.js" init --show-consent` via Bash to probe install-ack status and compute the backfill cost estimate.
+2. If the `--show-consent` output indicates install-ack is missing → print the error + exit.
+3. If the project is already opted in → report current status + exit.
+4. Otherwise use `AskUserQuestion` to present the user with a multi-choice question: *"Opt this project in for automatic analysis? Estimated backfill cost: $X–$Y on claude-sonnet-4-6."* Options: `"Accept"`, `"Accept, skip backfill"`, `"Decline"`.
+5. Based on the answer, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cli/bin.js" init --accept [--skip-backfill]` via Bash (or exit silently on decline).
+
+**CLI subcommand** (`dist/cli/bin.js init`):
+
+- `--show-consent` flag: print a JSON document `{install_ack, consent_exists, estimated_cost_usd_low, estimated_cost_usd_high, backfill_count}` and exit 0. Read-only probe.
+- `--accept` flag: delegate to `@fos/core.runInit` to create `.comprehension/`, write `consent.json`, run the backfill wizard unless `--skip-backfill`.
+- Without `--accept` and without `--show-consent`: print usage + exit 1 (the markdown is expected to always pass one of the two).
+
+This split keeps the LLM-facing interaction (AskUserQuestion) in the markdown and all state mutation in the CLI.
 
 ### 4.3 Stop hook (per session end)
 
@@ -252,43 +335,61 @@ SessionStart aggregates (1), (2), (3) into a single actionable line.
 
 ## 5. Command Contracts
 
+Every command is a pair: a `.md` prompt template (what Claude sees when the user types the slash command) and a CLI subcommand (the imperative work).
+
 ### 5.1 `/comprehend init`
 
+**Markdown** (`commands/comprehend-init.md`): tells Claude to probe via `bin.js init --show-consent`, use `AskUserQuestion` for the accept/decline/skip-backfill choice, then execute via `bin.js init --accept [--skip-backfill]` or exit. See §4.2 for the full flow.
+
+**CLI** (`bin.js init`):
 ```
-Usage: /comprehend init [--accept] [--skip-backfill]
+Usage: bin.js init [--show-consent] [--accept] [--skip-backfill]
 
 Flags:
-  --accept          Non-interactive: opt in without the y/N prompt.
-  --skip-backfill   Skip the post-init backfill wizard.
+  --show-consent    Print JSON probe {install_ack, consent_exists,
+                    estimated_cost_usd_low, estimated_cost_usd_high,
+                    backfill_count} and exit 0.
+  --accept          Opt this project in (idempotent). Writes consent.json.
+  --skip-backfill   With --accept: skip the backfill wizard.
 ```
 
-- **Exit 0** on successful opt-in (or idempotent reuse).
-- **Exit 1** if `~/.claude/fos-install-ack` is missing.
+- **Exit 0** on successful opt-in (or idempotent reuse, or `--show-consent`).
+- **Exit 1** if `~/.claude/fos-install-ack` is missing (with `--accept`).
 
 ### 5.2 `/comprehend`
 
+**Markdown** (`commands/comprehend.md`): tells Claude to check the project is opted in (via the CLI), optionally ask the user to confirm re-analyzing an existing session (`AskUserQuestion` only if the session already has an analysis on disk), then invoke `bin.js analyze` synchronously and show the summary to the user.
+
+**CLI** (`bin.js analyze`):
 ```
-Usage: /comprehend [session_id] [--dry-run] [--force]
+Usage: bin.js analyze [<session_id>] [--dry-run] [--force] [--transcript-path <path>]
 
 Args:
-  session_id   Session to re-analyze. Defaults to the current session.
+  session_id            Session to re-analyze. Optional; derivable from transcript path.
 
 Flags:
-  --dry-run    Show cost estimate + existing state; don't invoke the refiner.
-  --force      Re-analyze even if the session already has a session file.
+  --transcript-path     Explicit JSONL path. Markdown extracts this from the
+                        current Claude Code session's transcript_path hook-payload
+                        field when available.
+  --dry-run             Show cost estimate + existing state; don't invoke the refiner.
+  --force               Re-analyze even if the session already has a session file.
 ```
 
 - **Synchronous** (user is at the keyboard). No detach. Fails fast if the lock is held.
-- **Exit 0** on success, **1** on refiner failure, **3** if the project isn't opted in, **4** if the lock is held by a running background analysis (print a message pointing at `/comprehend status`).
+- **Exit 0** on success, **1** on refiner failure, **3** if the project isn't opted in, **4** if the lock is held (print a message pointing at `/comprehend status`).
 
 ### 5.3 `/comprehend status`
 
+**Markdown** (`commands/comprehend-status.md`): tells Claude to run `bin.js status [--ack]` via Bash, render its stdout faithfully to the user, and note if `--ack` was used.
+
+**CLI** (`bin.js status`):
 ```
-Usage: /comprehend status [--ack]
+Usage: bin.js status [--ack] [--json]
 
 Flags:
-  --ack   Mark all current failures as acknowledged; dismisses the
-          SessionStart banner until a new failure occurs.
+  --ack    Mark all current failures as acknowledged; dismisses the
+           SessionStart banner until a new failure occurs.
+  --json   Emit machine-readable JSON instead of the human-readable output.
 ```
 
 - Output lists project root, refiner version + hash, counts (analyzed / failed / queued / running), last rebuild time + `project_view_version`, and the last 3 worker runs with outcomes.
@@ -296,23 +397,32 @@ Flags:
 
 ### 5.4 `/comprehend backfill`
 
+**Markdown** (`commands/comprehend-backfill.md`): tells Claude to (1) probe via `bin.js backfill --show-preview --recent N --model M` to get the count + cost estimate, (2) use `AskUserQuestion` to confirm with the user, (3) run `bin.js backfill --yes [...]` on acceptance.
+
+**CLI** (`bin.js backfill`):
 ```
-Usage: /comprehend backfill [--project-hash <hash>] [--recent <N>]
-                            [--yes] [--model <model>]
+Usage: bin.js backfill [--show-preview] [--project-hash <hash>]
+                       [--recent <N>] [--yes] [--model <model>]
+
+Flags:
+  --show-preview   Emit JSON {count, estimated_cost_usd_low,
+                   estimated_cost_usd_high, resolved_project_hash} and exit 0.
+  --yes            Skip interactive confirmation (markdown-driven confirm lives
+                   in AskUserQuestion, not readline).
 ```
 
-- Thin wrapper over `@fos/core.discoverSessions` + `backfill`.
-- Auto-derives `--project-hash` from project root if possible (scan `~/.claude/projects/` for matching `cwd`); prompts otherwise.
+- Auto-derives `--project-hash` if missing (scans `~/.claude/projects/` for matching `cwd`).
 - Acquires the project-level lock for the entire backfill run so it doesn't race with concurrent Stop hooks.
-- Each backfilled session gets a log entry like any other.
+- Each backfilled session gets a log entry.
 - **Exit 0** on completion, **1** on aborted, **2** on cost-estimate declined, **3** if project isn't opted in.
 
 ### 5.5 Cross-command conventions
 
-- Every command first checks opt-in; exit 3 with a helpful message if missing.
-- Every command routes errors through `log.ts` so `/comprehend status` surfaces them.
-- Every command uses `@fos/core`'s path helpers.
+- Every CLI subcommand first checks opt-in; exits 3 with a helpful message if missing (except `init` itself and `status`).
+- Every subcommand routes errors through `log.ts` so `/comprehend status` surfaces them.
+- Every subcommand uses `@fos/core`'s path helpers.
 - Exit codes are documented and stable.
+- Markdown templates always pass the current session's `transcript_path` + `session_id` explicitly when Claude has them (from the hook payload context) rather than relying on the CLI to discover them.
 
 ---
 
@@ -358,13 +468,21 @@ Usage: /comprehend backfill [--project-hash <hash>] [--recent <N>]
 - 24-hour failure-banner window is arbitrary — `--ack` dismisses early.
 - Worker self-chain through a long pending queue serializes execution — acceptable (the user stacked sessions voluntarily).
 
-### 7.4 Open questions (resolve during implementation)
+### 7.4 Open questions — resolved by the Phase 0 probe
 
-1. **Exact `plugin.json` schema** — Phase 0 probe answers.
-2. **How Claude Code passes hook-event JSON** (stdin vs argv vs env) — Phase 0 probe.
-3. **Can slash commands prompt interactively?** If not, `/comprehend init` must hard-require `--accept` when stdin isn't a TTY.
-4. **Plugin dir layout post-install** — copied / symlinked / loaded in place? Affects whether the walking-`package.json` resolver finds `dist/prompts/`.
-5. **Project-hash derivation** — hash the cwd the way Claude Code does, or scan `~/.claude/projects/` for matching cwd. The scanning approach is more robust; use it.
+Findings in `docs/superpowers/plans/2026-04-21-fos-v2-plugin-probe-findings.md`:
+
+1. **`plugin.json` schema** — Strict closed schema, only `name` required. Location is `.claude-plugin/plugin.json`, not root. Auto-discovery of `commands/*.md` and `hooks/hooks.json` from plugin root.
+2. **Hook payload delivery** — JSON on stdin terminated by EOF. Common fields: `session_id`, `transcript_path`, `cwd`, `permission_mode`, `hook_event_name`. Env vars `CLAUDE_PLUGIN_ROOT`, `CLAUDE_PROJECT_DIR`, `CLAUDE_ENV_FILE` provide ambient context. `argv` is not used.
+3. **Interactive commands** — **Not via stdin/TTY.** Slash commands are markdown prompt templates; interactivity is via the `AskUserQuestion` LLM tool. This drove the §2/§4/§5 redesign above.
+4. **Install layout** — Full file copy to `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/`. `${CLAUDE_PLUGIN_ROOT}` points there. Relative subpaths (`dist/`, `commands/`, `hooks/`) preserved.
+5. **Project-hash derivation** — Scan `~/.claude/projects/<hash>/` for a JSONL whose first event's `cwd` matches the project root. Don't try to reproduce Claude Code's internal hash function.
+
+### 7.5 Still unresolved (requires manual verification before/during Phase 3)
+
+**Exact Stop and SessionStart payload field names.** The probe couldn't trigger a real top-level Claude Code session from a subagent sandbox, so §2.3's hook payload description is predicted from the official `hook-development` skill docs, not observed. Before relying on field-name specifics (e.g., `transcript_path` vs `transcriptPath`), a human must reinstall the probe plugin and trigger one real session. Probe commands are in findings doc §6.6.
+
+If predicted field names are wrong, the fix is mechanical (rename in `src/hooks/*.ts`'s stdin parser). Does not affect overall architecture.
 
 ---
 
@@ -374,10 +492,10 @@ v1 of the plugin ships when all of the following are true:
 
 ### 8.1 Functional
 
-- `claude plugins install file:./packages/plugin` succeeds; consent acknowledgment fires; Stop + SessionStart hooks + all four commands register.
+- `claude plugins marketplace add ./packages/plugin` + `claude plugins install comprehend-fos@fos-dev` succeed; consent acknowledgment fires; Stop + SessionStart hooks + all four commands register. `claude plugins validate packages/plugin` passes with no errors.
 - `/comprehend init` in a fresh project creates `.comprehension/`, writes `consent.json`, and either runs a backfill or finishes cleanly.
 - Live Claude Code session on an opted-in project ends → Stop hook fires → detached worker runs analysis + rebuild invisibly → next SessionStart is silent → `.comprehension/sessions/` has a new file.
-- Forced refiner failure (bad `claude` auth) surfaces at next SessionStart. `/comprehend status` shows the failure. `/comprehend status --ack` dismisses the banner.
+- Forced refiner failure (via an override prompt that produces unparseable output) surfaces at next SessionStart. `/comprehend status` shows the failure. `/comprehend status --ack` dismisses the banner.
 - Two Claude Code sessions on the same project in quick succession: one wins the lock, the second queues, both eventually produce session files.
 
 ### 8.2 Install / onboarding

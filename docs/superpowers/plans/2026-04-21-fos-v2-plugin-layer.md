@@ -2,9 +2,11 @@
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Post-probe revision (2026-04-21):** Phase 0 (plugin-format probe) completed and revealed that Claude Code slash commands are markdown prompt templates, not executable scripts. The spec and this plan were amended to move imperative logic into a single CLI binary (`dist/cli/bin.js`) that command markdown invokes via Bash; commands/*.md are now LLM prompt templates driving `AskUserQuestion` + Bash. Tasks marked **[REVISED]** reflect this correction.
+
 **Goal:** Build `@fos/plugin` — a self-contained Claude Code plugin that wraps the Plan 1 `@fos/core` engine with a detached-background Stop hook, a minimal-actionable SessionStart hook, four slash commands (`/comprehend`, `/comprehend init`, `/comprehend status`, `/comprehend backfill`), and install-time + per-project consent.
 
-**Architecture:** New `packages/plugin/` in the existing pnpm monorepo. `@fos/core` is inlined into the plugin's `dist/` via tsup — plugin is self-contained with zero runtime npm deps. Stop hook is a tiny gate that spawns a detached Node worker and exits within 500 ms. Per-project file lock + pending queue serialize concurrent analyses. SessionStart reads log files + pending queue + manifest to surface at most one actionable message.
+**Architecture:** New `packages/plugin/` in the existing pnpm monorepo. `@fos/core` is inlined into the plugin's `dist/` via tsup — plugin is self-contained with zero runtime npm deps. Single CLI binary (`dist/cli/bin.js`) exposes all subcommands (`init`, `analyze`, `rebuild`, `backfill`, `status`); four `commands/*.md` prompt templates drive it via the Bash tool. Stop hook is a tiny gate that spawns a detached Node worker and exits within 500 ms. Per-project file lock + pending queue serialize concurrent analyses. SessionStart reads log files + pending queue + manifest to surface at most one actionable message via the hook's stdout JSON response.
 
 **Tech Stack:**
 - Node 20+, TypeScript 5.x, ESM (same as Plan 1)
@@ -52,29 +54,40 @@ All paths relative to repo root `D:\comprehension-debt\`:
 ```
 packages/
 └── plugin/
-    ├── package.json                      # @fos/plugin, type: module
+    ├── package.json                       # @fos/plugin, type: module
     ├── tsconfig.json
-    ├── tsup.config.ts                    # multi-entry, inlines @fos/core + deps
+    ├── tsup.config.ts                     # 4-entry build (hooks×2 + cli/bin + worker)
     ├── README.md
-    ├── plugin.json                       # Claude Code plugin manifest (shape confirmed by Phase 0 probe)
+    ├── .claude-plugin/
+    │   ├── plugin.json                    # Claude Code plugin manifest (post-probe location)
+    │   └── marketplace.json               # self-wrapper for local install flow
+    ├── commands/                          # LLM prompt templates (NOT compiled)
+    │   ├── comprehend.md
+    │   ├── comprehend-init.md
+    │   ├── comprehend-status.md
+    │   └── comprehend-backfill.md
+    ├── hooks/
+    │   └── hooks.json                     # Claude Code hook-config manifest
     ├── install/
-    │   └── post-install.js               # install-time consent text + install-ack marker
+    │   └── post-install.js                # install-time consent text + install-ack marker
     ├── src/
     │   ├── hooks/
-    │   │   ├── stop.ts                   # Stop hook entry — detach worker
-    │   │   └── session-start.ts          # SessionStart hook entry — minimal actionable
-    │   ├── commands/
-    │   │   ├── comprehend.ts             # /comprehend [session_id] [--dry-run] [--force]
-    │   │   ├── comprehend-init.ts        # /comprehend init [--accept] [--skip-backfill]
-    │   │   ├── comprehend-status.ts      # /comprehend status [--ack]
-    │   │   └── comprehend-backfill.ts    # /comprehend backfill [--project-hash ...]
+    │   │   ├── stop.ts                    # → dist/hooks/stop.js
+    │   │   └── session-start.ts           # → dist/hooks/session-start.js
+    │   ├── cli/
+    │   │   ├── bin.ts                     # → dist/cli/bin.js (dispatches subcommands)
+    │   │   └── commands/
+    │   │       ├── comprehend.ts          # `analyze` subcommand impl
+    │   │       ├── comprehend-init.ts     # `init` subcommand impl
+    │   │       ├── comprehend-status.ts   # `status` subcommand impl
+    │   │       └── comprehend-backfill.ts # `backfill` subcommand impl
     │   ├── worker/
-    │   │   └── analyze-worker.ts         # detached subprocess entry
-    │   ├── lock.ts                       # per-project analysis.lock acquire/release/reclaim
-    │   ├── log.ts                        # NDJSON log writer + reader
-    │   ├── consent.ts                    # install-ack + per-project consent.json helpers
-    │   ├── discover-project.ts           # project root + Claude Code project-hash + session-id resolution
-    │   └── plugin-paths.ts               # plugin-specific .fos/* path helpers (imports from @fos/core's paths)
+    │   │   └── analyze-worker.ts          # → dist/worker/analyze-worker.js
+    │   ├── lock.ts
+    │   ├── log.ts
+    │   ├── consent.ts
+    │   ├── discover-project.ts
+    │   └── plugin-paths.ts
     └── tests/
         ├── unit/
         │   ├── lock.test.ts
@@ -83,23 +96,24 @@ packages/
         │   ├── discover-project.test.ts
         │   └── plugin-paths.test.ts
         ├── hooks/
-        │   ├── stop.test.ts               # mocked worker spawner
-        │   └── session-start.test.ts      # picks correct message given state
-        ├── commands/
-        │   ├── comprehend-init.test.ts
-        │   ├── comprehend-status.test.ts
-        │   └── comprehend-backfill.test.ts
+        │   ├── stop.test.ts
+        │   └── session-start.test.ts
+        ├── cli/
+        │   └── commands/
+        │       ├── comprehend-init.test.ts
+        │       ├── comprehend-status.test.ts
+        │       └── comprehend-backfill.test.ts
         └── integration/
-            ├── plugin-smoke.test.ts       # loads built plugin dir, asserts shape
-            └── worker-chain.test.ts       # self-chaining drain of pending queue
+            ├── plugin-smoke.test.ts        # asserts .claude-plugin/, commands/*.md, hooks/hooks.json, dist/*
+            └── worker-chain.test.ts
 
 packages/core/
 └── src/
-    └── paths.ts                          # Phase 1 Task 1: extended with plugin path helpers
+    └── paths.ts                           # Phase 1 Task 4: extended with plugin path helpers
 
 docs/superpowers/plans/
-├── 2026-04-21-fos-v2-plugin-layer.md     # this plan
-└── 2026-04-21-fos-v2-plugin-probe-findings.md   # written during Phase 0; rest of plan references it
+├── 2026-04-21-fos-v2-plugin-layer.md      # this plan (revised post-probe)
+└── 2026-04-21-fos-v2-plugin-probe-findings.md   # Phase 0 output — authoritative ground truth
 ```
 
 **Design principles enforced by this layout:**
@@ -498,9 +512,9 @@ git commit -m "feat(core): extend paths.ts with plugin-layer .fos/* helpers"
 }
 ```
 
-- [ ] **Step 3: Create `packages/plugin/tsup.config.ts`**
+- [ ] **Step 3: Create `packages/plugin/tsup.config.ts`** **[REVISED post-probe]**
 
-Multi-entry build. Each hook, command, and worker is its own file. `noExternal` inlines `@fos/core` and its transitive deps.
+Four entries. Hooks and worker each get their own entry; `src/cli/bin.ts` is a single entry whose `src/cli/commands/*.ts` imports are inlined by tsup. `noExternal` inlines `@fos/core` and its transitive deps.
 
 ```ts
 import { defineConfig } from 'tsup';
@@ -509,10 +523,7 @@ export default defineConfig({
   entry: [
     'src/hooks/stop.ts',
     'src/hooks/session-start.ts',
-    'src/commands/comprehend.ts',
-    'src/commands/comprehend-init.ts',
-    'src/commands/comprehend-status.ts',
-    'src/commands/comprehend-backfill.ts',
+    'src/cli/bin.ts',
     'src/worker/analyze-worker.ts',
   ],
   format: ['esm'],
@@ -573,20 +584,19 @@ git commit -m "feat(plugin): scaffold @fos/plugin package"
 
 ---
 
-### Task 6: Stub all entry files + bundling smoke
+### Task 6: Stub all entry files + bundling smoke **[REVISED post-probe]**
 
 **Files (all stubs for now):**
 - Create: `packages/plugin/src/hooks/stop.ts`
 - Create: `packages/plugin/src/hooks/session-start.ts`
-- Create: `packages/plugin/src/commands/comprehend.ts`
-- Create: `packages/plugin/src/commands/comprehend-init.ts`
-- Create: `packages/plugin/src/commands/comprehend-status.ts`
-- Create: `packages/plugin/src/commands/comprehend-backfill.ts`
+- Create: `packages/plugin/src/cli/bin.ts`
+- Create: `packages/plugin/src/cli/commands/comprehend.ts`
+- Create: `packages/plugin/src/cli/commands/comprehend-init.ts`
+- Create: `packages/plugin/src/cli/commands/comprehend-status.ts`
+- Create: `packages/plugin/src/cli/commands/comprehend-backfill.ts`
 - Create: `packages/plugin/src/worker/analyze-worker.ts`
 
-Each stub file has a placeholder that will be replaced in later phases. This lets the bundler produce output today.
-
-- [ ] **Step 1: Create each stub file**
+- [ ] **Step 1: Stub hooks and worker**
 
 Pattern (adjust the log message per file):
 
@@ -598,45 +608,107 @@ export async function main(): Promise<void> {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch((err) => {
-    console.error(err);
-    process.exit(2);
+  main().catch((err) => { console.error(err); process.exit(2); });
+}
+```
+
+Apply the same pattern to `session-start.ts` and `worker/analyze-worker.ts`.
+
+- [ ] **Step 2: Stub CLI subcommands**
+
+Each `src/cli/commands/*.ts` file exports a subcommand registration function that commander will call. Stub:
+
+```ts
+// packages/plugin/src/cli/commands/comprehend-init.ts
+import type { Command } from 'commander';
+
+export function initCommand(program: Command): void {
+  program
+    .command('init')
+    .description('opt this project in for automatic analysis (impl in Phase 6)')
+    .option('--show-consent')
+    .option('--accept')
+    .option('--skip-backfill')
+    .action(() => {
+      console.error('[init] not yet implemented (Phase 6)');
+      process.exit(1);
+    });
+}
+```
+
+Repeat the pattern for `comprehend.ts` (subcommand name `analyze`), `comprehend-status.ts` (name `status`), `comprehend-backfill.ts` (name `backfill`).
+
+- [ ] **Step 3: Stub CLI bin entry**
+
+```ts
+// packages/plugin/src/cli/bin.ts
+#!/usr/bin/env node
+import { Command } from 'commander';
+import { initCommand } from './commands/comprehend-init.js';
+import { analyzeCommand } from './commands/comprehend.js';
+import { statusCommand } from './commands/comprehend-status.js';
+import { backfillCommand } from './commands/comprehend-backfill.js';
+
+export async function runCli(argv: readonly string[]): Promise<void> {
+  const program = new Command();
+  program.name('fos').description('FOS plugin CLI — drives /comprehend* slash commands');
+  initCommand(program);
+  analyzeCommand(program);
+  statusCommand(program);
+  backfillCommand(program);
+  await program.parseAsync([...argv]);
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  runCli(process.argv).catch((err) => {
+    console.error(err instanceof Error ? err.message : err);
+    process.exit(1);
   });
 }
 ```
 
-Apply the same pattern to all 7 files, customizing the log message and phase reference.
+The subcommand names intentionally use `analyze`/`init`/`status`/`backfill` (not `comprehend`/`comprehend-init`/etc.) because the markdown templates invoke the CLI as `bin.js <subcommand>`.
 
-- [ ] **Step 2: Run the build**
+- [ ] **Step 4: Run the build**
 
 ```bash
 pnpm --filter @fos/plugin build
 ```
 
-Expected: `packages/plugin/dist/` contains 7 bundled `.js` files, each a full self-contained ESM module (inlined deps). Sizes will be ~1 MB each because `@fos/core` + deps are inlined.
+Expected: `packages/plugin/dist/` contains exactly 4 bundled `.js` files:
+- `dist/hooks/stop.js`
+- `dist/hooks/session-start.js`
+- `dist/cli/bin.js`
+- `dist/worker/analyze-worker.js`
 
-- [ ] **Step 3: Sanity-run one bundle**
+Each fully self-contained (inlined deps). Sizes likely ~0.5–1.5 MB.
+
+- [ ] **Step 5: Sanity-run the bin**
 
 ```bash
-node packages/plugin/dist/hooks/stop.js 2>&1
+node packages/plugin/dist/cli/bin.js --help
 ```
 
-Expected: prints the stub message + exits 1.
+Expected: commander prints 4 subcommands (init, analyze, status, backfill) with their help text.
 
-- [ ] **Step 4: Run tests + lint**
+```bash
+node packages/plugin/dist/cli/bin.js init
+```
+
+Expected: prints the stub "not yet implemented (Phase 6)" line + exits 1.
+
+- [ ] **Step 6: Run tests + lint**
 
 ```bash
 pnpm --filter @fos/plugin test
 pnpm --filter @fos/plugin lint
 ```
 
-Expected: smoke test passes; tsc clean.
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add packages/plugin/src
-git commit -m "feat(plugin): stub hook/command/worker entries for bundling smoke"
+git commit -m "feat(plugin): stub hooks + single CLI entry for bundling smoke (post-probe layout)"
 ```
 
 ---
@@ -1572,124 +1644,245 @@ git commit -m "feat(plugin): SessionStart hook — minimal actionable message pi
 
 ---
 
-## Phase 6 — Commands
+## Phase 6 — Commands **[REVISED post-probe]**
+
+Each of Tasks 15–18 is now a **pair**: a markdown prompt template under `commands/<name>.md` + a CLI subcommand under `src/cli/commands/<name>.ts`. The markdown drives Claude; the CLI does the work. Tests cover the CLI (unit + integration). The markdown is asserted to exist and be non-empty via the smoke test (Task 21).
+
+**General markdown template shape** (for reference — adapt per command):
+
+```markdown
+---
+description: "One-liner shown in Claude Code's command listing"
+---
+
+You are helping the user with the FOS comprehension plugin.
+
+The user ran `/comprehend-<name>`. To execute this command:
+
+1. [Optional probe step: invoke the CLI's `--show-*` mode via Bash to gather state.]
+2. [Optional user-input step: call `AskUserQuestion` with appropriate options.]
+3. Invoke the CLI's real action via Bash:
+   `node "${CLAUDE_PLUGIN_ROOT}/dist/cli/bin.js" <subcommand> [args]`
+4. Present the output to the user in a clear summary.
+
+Never bypass the CLI — all state mutations go through it.
+```
 
 ### Task 15: `/comprehend init`
 
 **Files:**
-- Modify: `packages/plugin/src/commands/comprehend-init.ts`
-- Create: `packages/plugin/tests/commands/comprehend-init.test.ts`
+- Create: `packages/plugin/commands/comprehend-init.md`
+- Modify: `packages/plugin/src/cli/commands/comprehend-init.ts` (replace Phase 1 stub)
+- Create: `packages/plugin/tests/cli/commands/comprehend-init.test.ts`
 
-Behavior per spec §5.1:
-- Check `hasInstallAck()`. If missing → exit 1 with instructions.
-- Check `hasProjectConsent()`. If present → idempotent no-op (print status, exit 0).
-- If `--accept` flag: skip the y/N prompt.
-- Otherwise: prompt interactively (if stdin is TTY); if non-TTY and no `--accept` → exit 1 with instructions.
-- On acceptance: call `runInit` from `@fos/core` (scaffolds `.comprehension/`), write consent.json, optionally run backfill wizard.
+**Markdown (`commands/comprehend-init.md`)** — tells Claude to:
 
-- [ ] **Step 1–4:** TDD as with prior tasks.
+1. Bash-invoke `node "${CLAUDE_PLUGIN_ROOT}/dist/cli/bin.js" init --show-consent` and parse the returned JSON (`{install_ack, consent_exists, estimated_cost_usd_low, estimated_cost_usd_high, backfill_count}`).
+2. If `install_ack: false`: print a clear error and stop.
+3. If `consent_exists: true`: report current opt-in status and stop (idempotent path).
+4. Otherwise: use `AskUserQuestion` with 3 options: "Accept", "Accept, skip backfill", "Decline".
+5. Translate the choice to `node bin.js init --accept [--skip-backfill]` or a no-op, and report the result.
 
-- [ ] **Step 2: Implement** — use commander for arg parsing; import `runInit` from `@fos/core`; integrate with `writeProjectConsent` from Task 8.
+**CLI subcommand (`src/cli/commands/comprehend-init.ts`)** — real behavior:
 
-(Full code omitted here for brevity — the pattern is: commander setup → opt-in check → acceptance gate → scaffold → consent write → optional backfill wizard via Task 18's command. Implementer fills in following Plan 1's CLI command style.)
+- `--show-consent`: probe install-ack + existing consent, derive backfill count from `discoverSessions`, derive cost from `estimateCost`, print one-line JSON, exit 0.
+- `--accept`: check install-ack (exit 1 if missing); if project already opted in, report and exit 0 (idempotent); else scaffold `.comprehension/` via `runInit`, write `consent.json`, run backfill wizard unless `--skip-backfill`.
+- Bare invocation (neither flag): print usage + exit 2.
 
-- [ ] **Step 5: Commit** with message `feat(plugin): /comprehend init command with consent gate`
+**TDD steps:**
+
+- [ ] **Step 1: Write failing tests** for the subcommand covering: `--show-consent` with no ack / with ack+consent / with ack+no-consent; `--accept` without ack (exit 1); `--accept` with ack, idempotent case; `--accept` happy path creates consent.json via the existing `writeProjectConsent` helper (from Task 8). Use an injected `runInit` mock to avoid filesystem backfill work.
+
+- [ ] **Step 2: Implement `src/cli/commands/comprehend-init.ts`**.
+
+- [ ] **Step 3: Write `commands/comprehend-init.md`** following the shape above.
+
+- [ ] **Step 4: Run tests + lint + build** — expect the subcommand tests green; `pnpm --filter @fos/plugin build` produces a fresh `dist/cli/bin.js` that responds to `node dist/cli/bin.js init --show-consent` on a tmp project with reasonable JSON.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/plugin/commands/comprehend-init.md packages/plugin/src/cli/commands/comprehend-init.ts packages/plugin/tests/cli/commands/comprehend-init.test.ts
+git commit -m "feat(plugin): /comprehend init (markdown template + CLI subcommand)"
+```
 
 ---
 
 ### Task 16: `/comprehend`
 
 **Files:**
-- Modify: `packages/plugin/src/commands/comprehend.ts`
-- Create: `packages/plugin/tests/commands/comprehend.test.ts`
+- Create: `packages/plugin/commands/comprehend.md`
+- Modify: `packages/plugin/src/cli/commands/comprehend.ts`
+- Create: `packages/plugin/tests/cli/commands/comprehend.test.ts`
 
-Behavior per spec §5.2:
-- Check opt-in (exit 3 if missing).
-- Check lock (exit 4 if held, with a message pointing at `/comprehend status`).
-- Derive session ID from argv or resolve from current Claude Code session.
-- `--dry-run`: show cost estimate + existing state, don't call refiner.
-- `--force`: re-analyze even if session file exists.
-- Call `analyzeSession` synchronously; on success, call `rebuildProjectView`; print a summary.
+**Markdown (`commands/comprehend.md`)** — tells Claude to:
 
-- [ ] **Step 1–4:** TDD.
+1. Extract the current session's `transcript_path` and `session_id` from context (available from Claude Code's in-session environment).
+2. If the user passed a specific session name as the command arg, use that instead.
+3. Bash-invoke `node "${CLAUDE_PLUGIN_ROOT}/dist/cli/bin.js" analyze --transcript-path <path> --session-id <id>`.
+4. On exit 0: report the summary to the user.
+5. On exit 4 (lock held): tell the user analysis is running in background, suggest `/comprehend status`.
 
-- [ ] **Step 5: Commit** with message `feat(plugin): /comprehend command — synchronous re-analyze`.
+**CLI subcommand (`src/cli/commands/comprehend.ts`)** — matches spec §5.2:
+
+- Reject if project not opted in (exit 3).
+- Try-acquire lock for synchronous run; exit 4 if held.
+- `--dry-run`: print cost + existing state JSON; exit 0.
+- `--force`: re-analyze regardless of existing session file.
+- Otherwise: call `analyzeSession` synchronously; on success call `rebuildProjectView`; release lock; exit 0.
+
+**TDD steps** (Step 1 write tests → Step 2 impl → Step 3 markdown → Step 4 verify → Step 5 commit). Tests cover: opt-in gate (exit 3); lock-held gate (exit 4); dry-run JSON shape; happy-path end-to-end with mocked `analyzeSession`.
+
+Commit message: `feat(plugin): /comprehend (markdown template + CLI subcommand)`.
 
 ---
 
 ### Task 17: `/comprehend status`
 
 **Files:**
-- Modify: `packages/plugin/src/commands/comprehend-status.ts`
-- Create: `packages/plugin/tests/commands/comprehend-status.test.ts`
+- Create: `packages/plugin/commands/comprehend-status.md`
+- Modify: `packages/plugin/src/cli/commands/comprehend-status.ts`
+- Create: `packages/plugin/tests/cli/commands/comprehend-status.test.ts`
 
-Behavior per spec §5.3:
-- Read manifest → refiner version + hash.
-- Count sessions (.md), failed stubs (.failed.json), pending queue, running (lock).
-- Read last 3 log files (most recent by mtime) → show outcomes.
-- `--ack`: `touch` the `acked_at` file; add "Acknowledged N failure(s)" line.
+**Markdown** — tells Claude to invoke `node bin.js status [--ack]` via Bash and render the stdout verbatim to the user; if `--ack` was used, confirm "Failures acknowledged."
+
+**CLI subcommand**:
+- Read manifest, count sessions (.md) / failed stubs / pending queue / running (lock).
+- List the last 3 worker runs from log files (most recent by mtime).
+- `--ack`: `touch` `acked_at` file; note how many failures were dismissed.
+- `--json`: emit structured JSON instead of human-readable output.
 - Always exit 0.
 
-- [ ] **Step 1–4:** TDD.
+**TDD steps** as Task 15. Tests cover: empty project; a project with one success + one failure; `--ack` updates `acked_at`; `--json` shape.
 
-- [ ] **Step 5: Commit** with message `feat(plugin): /comprehend status command`.
+Commit: `feat(plugin): /comprehend status (markdown template + CLI subcommand)`.
 
 ---
 
 ### Task 18: `/comprehend backfill`
 
 **Files:**
-- Modify: `packages/plugin/src/commands/comprehend-backfill.ts`
-- Create: `packages/plugin/tests/commands/comprehend-backfill.test.ts`
+- Create: `packages/plugin/commands/comprehend-backfill.md`
+- Modify: `packages/plugin/src/cli/commands/comprehend-backfill.ts`
+- Create: `packages/plugin/tests/cli/commands/comprehend-backfill.test.ts`
 
-Behavior per spec §5.4:
+**Markdown** — tells Claude to:
+
+1. Bash-invoke `node bin.js backfill --show-preview --recent <N> --model <M>` (default N=all, M=claude-sonnet-4-6).
+2. Use `AskUserQuestion` with options "Accept", "Choose a different model", "Choose a different count", "Decline" — based on the preview JSON.
+3. On Accept, bash-invoke `node bin.js backfill --yes --recent <N> --model <M>` and stream the output.
+
+**CLI subcommand**:
 - Check opt-in (exit 3).
-- Derive `--project-hash` from `findClaudeCodeProjectHash(projectRoot)` if not provided.
-- Acquire lock for the WHOLE duration of the backfill (not per-session).
-- Call `discoverSessions` + `backfill` from `@fos/core` with logged per-session entries (so `/comprehend status` sees them).
-- Release lock, exit.
+- `--show-preview`: auto-derive `--project-hash` via `findClaudeCodeProjectHash` if missing, compute count + cost, print JSON, exit 0.
+- `--yes`: acquire the lock for the whole backfill; iterate `discoverSessions` + `analyzeSession` per session, logging each; rebuild project view at the end; release lock.
+- Exit 0 on completion, 1 aborted, 2 if cost-estimate step missing, 3 if not opted in.
 
-- [ ] **Step 1–4:** TDD.
+**TDD steps** as Task 15. Tests cover: `--show-preview` JSON shape; `--yes` path with 0 discovered sessions; `--yes` path with 2 discovered sessions (mocked analyze).
 
-- [ ] **Step 5: Commit** with message `feat(plugin): /comprehend backfill command (auto-discovery + lock)`.
+Commit: `feat(plugin): /comprehend backfill (markdown template + CLI subcommand)`.
 
 ---
 
-## Phase 7 — Plugin Manifest + Install Script
+## Phase 7 — Plugin Manifest + Install Script **[REVISED post-probe]**
 
-### Task 19: `plugin.json` from Phase 0 findings
+### Task 19: `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `hooks/hooks.json`
 
 **Files:**
-- Create: `packages/plugin/plugin.json`
+- Create: `packages/plugin/.claude-plugin/plugin.json`
+- Create: `packages/plugin/.claude-plugin/marketplace.json`
+- Create: `packages/plugin/hooks/hooks.json`
 
-- [ ] **Step 1: Write `plugin.json`** using the shape confirmed by `probe-findings.md`. A reasonable starting template (adjust per findings):
+- [ ] **Step 1: Write `.claude-plugin/plugin.json`** (strict closed schema per probe findings §1.2 — commands auto-discovered from `commands/*.md`; hooks config in the separate `hooks/hooks.json` file; no need to list them inline):
 
 ```json
 {
-  "name": "@fos/plugin",
+  "name": "comprehend-fos",
   "version": "0.0.1",
-  "description": "Passive comprehension layer for Claude Code sessions",
-  "hooks": {
-    "Stop": "dist/hooks/stop.js",
-    "SessionStart": "dist/hooks/session-start.js"
-  },
-  "commands": {
-    "comprehend": "dist/commands/comprehend.js",
-    "comprehend init": "dist/commands/comprehend-init.js",
-    "comprehend status": "dist/commands/comprehend-status.js",
-    "comprehend backfill": "dist/commands/comprehend-backfill.js"
-  },
-  "install": "install/post-install.js"
+  "description": "Passive comprehension layer for Claude Code sessions — background analysis via the Stop hook.",
+  "author": { "name": "FOS" },
+  "license": "MIT",
+  "keywords": ["claude-code", "comprehension", "analysis"]
 }
 ```
 
-If the Phase 0 probe shows commands are registered differently (e.g., one entry per subcommand with a distinct path separator), adjust accordingly.
+- [ ] **Step 2: Write `.claude-plugin/marketplace.json`** (self-wrapper for local install flow):
 
-- [ ] **Step 2: Commit**
+```json
+{
+  "name": "fos-dev",
+  "owner": { "name": "FOS" },
+  "plugins": [
+    {
+      "name": "comprehend-fos",
+      "source": { "source": "./", "type": "local" },
+      "description": "Passive comprehension layer for Claude Code sessions"
+    }
+  ]
+}
+```
+
+(Cross-check the exact field names against `probe-findings.md` §1.3 and adjust if it differs.)
+
+- [ ] **Step 3: Write `hooks/hooks.json`**:
+
+```json
+{
+  "description": "@fos/plugin Stop + SessionStart hook registrations",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/hooks/stop.js\"",
+            "async": false,
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/hooks/session-start.js\"",
+            "async": false,
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Short timeouts because both hooks are designed to return in under 500 ms (Stop detaches the worker; SessionStart is read-only).
+
+- [ ] **Step 4: Validate with the real CLI**
 
 ```bash
-git add packages/plugin/plugin.json
-git commit -m "feat(plugin): plugin.json manifest"
+claude plugins validate packages/plugin
+```
+
+Expected: passes (possibly with a warning about missing fields — homepage/repository). If it errors, reconcile against probe findings §5 and fix.
+
+- [ ] **Step 5: Add a convenience install script to `packages/plugin/package.json`**
+
+Add to `scripts`:
+
+```json
+{
+  "install-local": "claude plugins marketplace add ./ && claude plugins install comprehend-fos@fos-dev"
+}
+```
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add packages/plugin/.claude-plugin packages/plugin/hooks/hooks.json packages/plugin/package.json
+git commit -m "feat(plugin): plugin manifest + marketplace wrapper + hooks config"
 ```
 
 ---
@@ -1770,9 +1963,12 @@ git commit -m "feat(plugin): post-install consent + install-ack script"
 
 - [ ] **Step 1: Write smoke test** that:
   1. Runs `pnpm --filter @fos/plugin build` in a child process (or assumes prebuilt).
-  2. Asserts `packages/plugin/plugin.json` is valid JSON and references existing `dist/` paths.
-  3. Asserts each hook/command entry in `dist/` exists and is executable (node can load it).
-  4. Asserts the `install/post-install.js` script exists.
+  2. Asserts `packages/plugin/.claude-plugin/plugin.json` exists, is valid JSON, and has `name === "comprehend-fos"`.
+  3. Asserts `packages/plugin/.claude-plugin/marketplace.json` exists and is valid JSON.
+  4. Asserts `packages/plugin/hooks/hooks.json` exists, is valid JSON, and references the expected `${CLAUDE_PLUGIN_ROOT}/dist/hooks/*.js` paths.
+  5. Asserts each of the 4 `dist/` entries exists and can be `await import()`-ed without throwing: `dist/hooks/stop.js`, `dist/hooks/session-start.js`, `dist/cli/bin.js`, `dist/worker/analyze-worker.js`.
+  6. Asserts each of the 4 `commands/*.md` files exists and is non-empty (> 100 chars to catch accidental placeholders).
+  7. Asserts `install/post-install.js` exists.
 
 - [ ] **Step 2: Run + commit**
 
@@ -1861,12 +2057,17 @@ Expected: both `@fos/core` and `@fos/plugin` build + pass.
 - [ ] **Step 2: Manual install dogfood**
 
 ```bash
-claude plugins install file:./packages/plugin
+cd packages/plugin
+pnpm run install-local      # wraps the two-step marketplace flow
+# or explicitly:
+#   claude plugins marketplace add ./packages/plugin
+#   claude plugins install comprehend-fos@fos-dev
 ```
 
 Confirm:
-- The consent text appears.
-- `~/.claude/fos-install-ack` exists after.
+- The install succeeds; registry at `~/.claude/plugins/installed_plugins.json` has a `comprehend-fos@fos-dev` entry.
+- The post-install script ran: consent text appeared + `~/.claude/fos-install-ack` exists.
+- `claude plugins validate packages/plugin` passes.
 
 - [ ] **Step 3: Manual opt-in + session**
 
