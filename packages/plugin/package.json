@@ -1,0 +1,25 @@
+{
+  "name": "@fos/plugin",
+  "version": "0.0.1",
+  "private": false,
+  "type": "module",
+  "files": ["dist", "plugin.json", "install"],
+  "scripts": {
+    "build": "tsup && pnpm run copy-assets",
+    "copy-assets": "node -e \"import('node:fs/promises').then(async fs=>{await fs.mkdir('dist/prompts',{recursive:true});await fs.copyFile('../core/prompts/refiner-v1.md','dist/prompts/refiner-v1.md');await fs.mkdir('dist/viewer',{recursive:true});await fs.copyFile('../core/dist/viewer/template.html','dist/viewer/template.html');console.log('assets copied');})\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "install-local": "claude plugins marketplace add ./ && claude plugins install comprehend-fos@fos-dev"
+  },
+  "dependencies": {
+    "@fos/core": "workspace:*",
+    "commander": "^12.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.5.0"
+  }
+}

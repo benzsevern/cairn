@@ -5,6 +5,13 @@ import {
   conceptFilePath,
   manifestPath,
   overridePromptPath,
+  consentPath,
+  analysisLockPath,
+  pendingQueuePath,
+  logsDir,
+  logFilePath,
+  ackedAtPath,
+  installAckPath,
 } from '../src/paths.js';
 
 describe('paths', () => {
@@ -29,5 +36,35 @@ describe('paths', () => {
 
   it('override prompt lives under .fos/', () => {
     expect(overridePromptPath(root)).toMatch(/\.fos[\\/]refiner-prompt\.md$/);
+  });
+});
+
+describe('plugin paths', () => {
+  const root = '/tmp/proj';
+
+  it('consent.json lives under .comprehension/.fos/', () => {
+    expect(consentPath(root)).toMatch(/\.comprehension[\\/]\.fos[\\/]consent\.json$/);
+  });
+
+  it('analysis.lock lives under .comprehension/.fos/', () => {
+    expect(analysisLockPath(root)).toMatch(/\.comprehension[\\/]\.fos[\\/]analysis\.lock$/);
+  });
+
+  it('pending.json lives under .comprehension/.fos/', () => {
+    expect(pendingQueuePath(root)).toMatch(/\.comprehension[\\/]\.fos[\\/]pending\.json$/);
+  });
+
+  it('logs dir and per-session log files under .comprehension/.fos/logs/', () => {
+    expect(logsDir(root)).toMatch(/\.comprehension[\\/]\.fos[\\/]logs$/);
+    expect(logFilePath(root, 'sess-abc')).toMatch(/\.comprehension[\\/]\.fos[\\/]logs[\\/]sess-abc\.log$/);
+  });
+
+  it('acked_at marker lives under .comprehension/.fos/', () => {
+    expect(ackedAtPath(root)).toMatch(/\.comprehension[\\/]\.fos[\\/]acked_at$/);
+  });
+
+  it('install ack marker lives under user home ~/.claude/', () => {
+    const p = installAckPath();
+    expect(p).toMatch(/[\\/]\.claude[\\/]fos-install-ack$/);
   });
 });

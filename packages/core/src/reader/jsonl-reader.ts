@@ -70,11 +70,12 @@ function expandAssistantEvent(line: { message: { content: unknown } }, index: nu
     const b = block as { type: string; text?: unknown; name?: unknown; input?: unknown };
     if (b.type === 'tool_use') {
       const argSummary = summarize(JSON.stringify(b.input ?? {}));
+      const name = typeof b.name === 'string' ? b.name : undefined;
       out.push(withTs({
         kind: 'tool_use' as TranscriptEventKind,
         index: index + out.length,
-        text: typeof b.name === 'string' ? b.name : '',
-        toolName: typeof b.name === 'string' ? b.name : undefined,
+        text: name ?? '',
+        ...(name !== undefined ? { toolName: name } : {}),
         toolSummary: argSummary,
       }, timestamp));
     } else if (b.type === 'text') {
