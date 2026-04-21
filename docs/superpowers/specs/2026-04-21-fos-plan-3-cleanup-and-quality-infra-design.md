@@ -122,8 +122,10 @@ Bare invocation (no args/flags) = rebuild only (deriver re-runs, no refiner).
 
 **Exit codes:** 0 success, 1 refiner failure, 2 aborted/cancelled, 3 not opted in, 4 lock held (for `--session`/`--all`).
 
+**Opt-in gate:** every mode — including bare rebuild — requires the project to have `.comprehension/.fos/consent.json`. Bare rebuild reads the session files and writes the derived view, so acting on a non-opted-in directory would be surprising. Exit 3 with a clear message pointing at `/comprehend-fos:comprehend-init`.
+
 **Lock behavior:**
-- Bare (rebuild only) — no lock.
+- Bare (rebuild only) — no lock (pure derivation; safe to race with the Stop-hook worker).
 - `--session` — acquires analysis lock synchronously like `/comprehend`.
 - `--all` — acquires analysis lock for the entire batch run.
 
@@ -185,9 +187,9 @@ sess-NN-<slug>/
 └── notes.md             # optional authoring notes
 ```
 
-**Case coverage targets** (author's judgment during mining):
-- **Mined:** `terse-user`, `long-session`, `multiple-concepts`, `refactor`, `debugging`, `no-concepts-expected`.
-- **Synthetic:** `conflicting-decisions`, `implicit-reasoning`, `abandoned-path`, `slug-reuse-across-sessions`, `rejected-alternative-only`, `empty-transcript`, `tool-heavy`, `pure-narrative`.
+**Case coverage targets** — authoring themes (author's judgment during mining). These are **themes for choosing which transcripts to include**, NOT tags. They overlap with §3.1's `TAGS` taxonomy but aren't 1:1 — a single case typically has 1–3 tags drawn from `TAGS`, regardless of which theme prompted its inclusion:
+- **Mined themes:** `terse-user`, `long-session`, `multiple-concepts`, `refactor`, `debugging`, `no-concepts-expected`.
+- **Synthetic themes:** `conflicting-decisions`, `implicit-reasoning`, `abandoned-path`, `slug-reuse-across-sessions`, `rejected-alternative-only`, `empty-transcript`, `tool-heavy`, `pure-narrative`.
 
 ### 2.5 Eval harness + baseline
 
@@ -234,7 +236,9 @@ Spec §8.2 bars (display-only, NOT enforced in Plan 3):
 
 **Snapshot** (`pnpm eval --snapshot`): write current metrics to `baseline.json`. Commit manually.
 
-**Regression gate** (normal `pnpm eval`): fail if any case's `concept_recall` drops by more than 5% OR `schema_valid` drops by more than 2% vs. committed baseline. Tolerance accommodates refiner non-determinism in cached mode (which should be zero but might surface from future corpus churn).
+**Regression gate** (normal `pnpm eval`): fail if any case's `concept_recall` drops by more than 5% OR `schema_valid_rate` drops by more than 2% vs. committed baseline. `reasoning_preservation_pct` (10% in `baseline.json.tolerance`) is **advisory only** — displayed in the report as a soft warning but doesn't fail the build. Reasoning is the highest-variance metric across refiner runs even in cached mode (multi-turn scans, substring matching), and enforcing it would trip too often to be useful. Plan 4 may promote it to enforcing once the refiner prompt stabilizes.
+
+Tolerance accommodates refiner non-determinism in cached mode (which should be zero but might surface from corpus churn) plus minor scoring algorithm tweaks.
 
 **Tolerance config** in `baseline.json`:
 
@@ -371,7 +375,7 @@ Linked from the install-time consent flow via the "Read the linked data-flow doc
 1. **Exact regex set for `scrub-transcript.mjs`.** Starter set in §2.4; extend on first false-negative.
 2. **Tolerance thresholds for regression.** Starter: 5% recall, 2% schema-valid, 10% reasoning. Revisit after Plan 4's first real iteration.
 3. **CI integration for `pnpm eval`.** Plan 3 decision: yes for cached mode, no for real mode. CI fails on regression vs baseline.
-4. **External URL for `docs/user/data-flow.md`.** Leave as TODO placeholder until a public repo exists. Consent text primary path: "see `docs/user/data-flow.md` in this plugin's install directory."
+4. **External URL for `docs/user/data-flow.md`.** The definitive text shipped in Plan 3 points at the local install copy only: *"The full data-flow statement is at `docs/user/data-flow.md` inside this plugin's install directory (`~/.claude/plugins/cache/fos-dev/comprehend-fos/<version>/docs/user/data-flow.md`)."* External/hosted URL is deferred until Plan 4 ships to a public marketplace; the consent text can be updated at that point without breaking installed plugins (next plugin upgrade picks it up).
 
 ### 4.5 Success criteria
 
