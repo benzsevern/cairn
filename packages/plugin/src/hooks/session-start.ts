@@ -131,8 +131,14 @@ function emitAdditionalContext(msg: string, stdout: NodeJS.WritableStream): void
 
 export async function runSessionStart(args: SessionStartArgs): Promise<number> {
   const msg = await pickSessionStartMessage(args);
+  const stdout = args.stdout ?? process.stdout;
   if (msg !== null) {
-    emitAdditionalContext(msg, args.stdout ?? process.stdout);
+    emitAdditionalContext(msg, stdout);
+  } else {
+    // Claude Code treats a SessionStart hook exiting 0 with empty stdout as a
+    // failure ("Failed with non-blocking status code: No stderr output").
+    // Always emit a benign envelope so silent paths are explicit successes.
+    stdout.write(JSON.stringify({ continue: true, suppressOutput: true }) + '\n');
   }
   return 0;
 }

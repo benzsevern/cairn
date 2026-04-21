@@ -4,5 +4,6 @@
   "required_reasoning_substrings": {
     "entity-resolution": ["threshold", "short"]
   },
-  "forbidden_slugs": ["threshold-tuning", "fuzzy-matching-v2"]
+  "forbidden_slugs": ["threshold-tuning", "fuzzy-matching-v2"],
+  "tags": ["slug-reuse", "synthetic"]
 }

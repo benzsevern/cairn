@@ -15,6 +15,7 @@ import {
 import {
   hasInstallAck,
   hasProjectConsent,
+  writeInstallAck,
   writeProjectConsent,
 } from '../../consent.js';
 import { findClaudeCodeProjectHash } from '../../discover-project.js';
@@ -36,10 +37,27 @@ export interface InitDeps {
 export interface InitOpts {
   showConsent?: boolean;
   accept?: boolean;
+  acceptMachineConsent?: boolean;
   skipBackfill?: boolean;
   projectRoot: string;
   model?: string;
 }
+
+const CONSENT_TEXT = `FOS analyzes your Claude Code session transcripts in the background and
+builds a comprehension graph in each opted-in project's .comprehension/
+directory.
+
+How analysis runs:
+  - Invokes your existing \`claude -p\` command (no new API key).
+  - Reads transcripts under ~/.claude/projects/.
+  - Writes .comprehension/ to each opted-in project.
+
+Data flow: unchanged from your normal Claude Code usage. The plugin does
+NOT contact any third-party provider.
+
+The full data-flow statement is at \`docs/user/data-flow.md\` inside this
+plugin's install directory
+(~/.claude/plugins/cache/fos-dev/comprehend-fos/<version>/docs/user/data-flow.md).`;
 
 async function gatherPreview(
   projectRoot: string,
@@ -95,6 +113,7 @@ export async function runInitSubcommand(opts: InitOpts, deps: InitDeps = {}): Pr
       JSON.stringify({
         install_ack: installAck,
         consent_exists: consentExists,
+        consent_required_text: installAck ? null : CONSENT_TEXT,
         estimated_cost_usd_low: preview.estimated_cost_usd_low,
         estimated_cost_usd_high: preview.estimated_cost_usd_high,
         backfill_count: preview.backfill_count,
@@ -105,11 +124,16 @@ export async function runInitSubcommand(opts: InitOpts, deps: InitDeps = {}): Pr
   }
 
   if (opts.accept) {
-    const installAck = await checkAck(ackOpts);
+    let installAck = await checkAck(ackOpts);
+    if (!installAck && opts.acceptMachineConsent) {
+      await writeInstallAck(ackOpts);
+      installAck = true;
+    }
     if (!installAck) {
       stderr.write(
         'Install acknowledgment missing (~/.claude/fos-install-ack).\n' +
-          'Run the plugin install script first; see docs/INSTALL.md.\n',
+          'Re-run /comprehend-fos:comprehend-init to view the consent text,\n' +
+          'or pass --accept-machine-consent to acknowledge non-interactively.\n',
       );
       return 1;
     }
@@ -152,10 +176,11 @@ export async function runInitSubcommand(opts: InitOpts, deps: InitDeps = {}): Pr
   }
 
   stderr.write(
-    'Usage: fos init [--show-consent | --accept [--skip-backfill]]\n' +
-      '  --show-consent   Probe install-ack + consent + backfill preview (JSON).\n' +
-      '  --accept         Opt this project in (idempotent).\n' +
-      '  --skip-backfill  With --accept, skip the backfill wizard.\n',
+    'Usage: fos init [--show-consent | --accept [--skip-backfill] [--accept-machine-consent]]\n' +
+      '  --show-consent            Probe install-ack + consent + backfill preview (JSON).\n' +
+      '  --accept                  Opt this project in (idempotent).\n' +
+      '  --skip-backfill           With --accept, skip the backfill wizard.\n' +
+      '  --accept-machine-consent  With --accept, also write the install-ack marker.\n',
   );
   return 2;
 }
@@ -167,12 +192,14 @@ export function initCommand(program: Command): void {
     .option('--show-consent', 'emit JSON probe and exit 0')
     .option('--accept', 'opt this project in (idempotent)')
     .option('--skip-backfill', 'with --accept: skip the backfill wizard')
+    .option('--accept-machine-consent', 'with --accept: write the install-ack marker')
     .option('--project-root <path>', 'project root', process.cwd())
     .option('--model <model>', 'model for cost estimation', 'claude-sonnet-4-6')
     .action(async (opts: {
       showConsent?: boolean;
       accept?: boolean;
       skipBackfill?: boolean;
+      acceptMachineConsent?: boolean;
       projectRoot: string;
       model: string;
     }) => {
@@ -183,6 +210,8 @@ export function initCommand(program: Command): void {
       if (opts.showConsent !== undefined) initOpts.showConsent = opts.showConsent;
       if (opts.accept !== undefined) initOpts.accept = opts.accept;
       if (opts.skipBackfill !== undefined) initOpts.skipBackfill = opts.skipBackfill;
+      if (opts.acceptMachineConsent !== undefined)
+        initOpts.acceptMachineConsent = opts.acceptMachineConsent;
       const code = await runInitSubcommand(initOpts);
       process.exit(code);
     });

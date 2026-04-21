@@ -180,7 +180,9 @@ describe('session-start hook', () => {
     );
   });
 
-  it('runSessionStart writes nothing when pick is null (no consent)', async () => {
+  it('runSessionStart emits a benign {continue,suppressOutput} envelope when pick is null (no consent)', async () => {
+    // Claude Code treats empty-stdout-with-exit-0 as a hook failure; the
+    // silent path must still emit a valid JSON envelope to count as success.
     const { stream, text } = captureStdout();
     const code = await runSessionStart({
       projectRoot: tmp,
@@ -188,7 +190,9 @@ describe('session-start hook', () => {
       stdout: stream,
     });
     expect(code).toBe(0);
-    expect(text()).toBe('');
+    const parsed = JSON.parse(text().trim()) as { continue: boolean; suppressOutput: boolean };
+    expect(parsed.continue).toBe(true);
+    expect(parsed.suppressOutput).toBe(true);
   });
 
   // Silence unused-import warnings in strict test configs.
