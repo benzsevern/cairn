@@ -12,5 +12,8 @@ export default defineConfig({
   clean: true,
   sourcemap: true,
   target: 'node20',
-  noExternal: [/^@fos\//, 'zod', 'gray-matter', 'execa', 'commander'],
+  // commander is CJS; keep it external so Node resolves it at runtime from
+  // the hoisted node_modules. The rest are inlined per spec §3 "self-contained
+  // executables".
+  noExternal: [/^@fos\//, 'zod', 'gray-matter', 'execa'],
 });
