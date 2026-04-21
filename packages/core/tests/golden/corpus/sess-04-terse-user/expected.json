@@ -5,7 +5,9 @@
       "mcp-empty-resource-handlers",
       "mcp-empty-resource-prompt-handlers",
       "mcp-resources-prompts-stub-handlers",
-      "mcp-empty-resources-prompts-handlers"
+      "mcp-empty-resources-prompts-handlers",
+      "mcp-resources-list-stub",
+      "mcp-resources-prompts-stub"
     ]
   },
   "slug_reuse_context": [],
