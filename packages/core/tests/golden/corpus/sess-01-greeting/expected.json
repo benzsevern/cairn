@@ -2,5 +2,6 @@
   "required_slugs": [],
   "slug_reuse_context": [],
   "required_reasoning_substrings": {},
-  "forbidden_slugs": ["fuzzy-matching", "entity-resolution"]
+  "forbidden_slugs": ["fuzzy-matching", "entity-resolution"],
+  "tags": ["no-concepts-expected", "synthetic"]
 }

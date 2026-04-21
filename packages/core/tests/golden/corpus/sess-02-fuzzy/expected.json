@@ -4,5 +4,6 @@
   "required_reasoning_substrings": {
     "fuzzy-matching": ["levenshtein", "unicode"]
   },
-  "forbidden_slugs": ["trigram-matching", "jaro-winkler"]
+  "forbidden_slugs": ["trigram-matching", "jaro-winkler"],
+  "tags": ["algorithmic-choice", "synthetic"]
 }
