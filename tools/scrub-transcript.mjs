@@ -8,6 +8,13 @@ const SECRET_PATTERNS = [
   { name: 'email', re: /[\w.+-]+@[\w-]+\.[\w.-]+/g, replacement: '<redacted-email>' },
   { name: 'sk-key', re: /\bsk-[A-Za-z0-9_-]{20,}\b/g, replacement: '<redacted-token>' },
   { name: 'ghp-token', re: /\bghp_[A-Za-z0-9]{20,}\b/g, replacement: '<redacted-token>' },
+  // GitHub fine-grained PAT (github_pat_*). Distinct from ghp_* because the
+  // body contains underscores, so it needs its own char class. Caught a real
+  // leak that slipped past the ghp_ regex.
+  { name: 'github-pat', re: /\bgithub_pat_[A-Za-z0-9_]{20,}\b/g, replacement: '<redacted-token>' },
+  // Other GitHub token formats — OAuth (gho_*), refresh (ghr_*), app (ghs_*),
+  // user-to-server (ghu_*). Collapsed into one class.
+  { name: 'gh-token', re: /\bgh[orsu]_[A-Za-z0-9]{20,}\b/g, replacement: '<redacted-token>' },
   { name: 'unix-home', re: /\/Users\/[A-Za-z0-9._-]+/g, replacement: '<HOME>' },
   // Windows home path, single-backslash form (shell-typed, rare in JSON)
   { name: 'windows-home', re: /[A-Z]:\\Users\\[A-Za-z0-9._-]+/g, replacement: '<HOME>' },
