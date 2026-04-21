@@ -111,7 +111,7 @@ New flag `--snapshot-delta` writes `packages/core/tests/golden/iterations/<times
 
 **Per iteration:**
 1. `pnpm eval --snapshot-delta` — ~$1, ~8 min on Sonnet × 13 cases.
-2. Dispatch subagent with: current `refiner-v1.md` content, current `iterations/<latest>.json`, per-case raw refiner outputs for failing cases, the target metrics, the delta vs previous. Subagent produces a unified-diff patch to `refiner-v1.md`.
+2. Dispatch subagent with: current `refiner-v1.md` content, current `iterations/<latest>.json`, per-case raw refiner outputs for failing cases, the target metrics, the delta vs previous. Subagent produces a unified-diff patch to `refiner-v1.md`. **Note:** this subagent IS intentionally given the raw refiner outputs — that's how it diagnoses what went wrong. The corpus-gaming constraint in §4.1 (authoring subagent must NOT run the refiner) applies only to Phase 0 case authoring, not to iteration here.
 3. Ratify (accept / tweak / reject).
 4. Apply, run eval again.
 5. Loop until stop condition.
