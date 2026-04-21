@@ -3,7 +3,7 @@
     {
       "slug": "npx-cache-eperm-clear",
       "name": "Corrupted npx cache causes MCP server startup failure",
-      "kind": "new",
+      "kind": "introduced",
       "summary": "Context7 MCP server fails at startup with a silent 'failed' state in Claude Code because `npx -y @upstash/context7-mcp` hits an EPERM error when unpacking a dependency (zod) into a corrupted/locked directory under `D:/AppData_Local/npm-cache/_npx/<hash>`. Clearing that specific _npx subdirectory is the fix.",
       "reasoning": [
         "The plugin-level 'failed' state in Claude Code's /mcp dialog hides the underlying startup error.",
@@ -19,7 +19,7 @@
     {
       "slug": "greptile-bearer-env-var",
       "name": "Greptile MCP plugin needs GREPTILE_API_KEY as a persistent Windows env var",
-      "kind": "new",
+      "kind": "introduced",
       "summary": "Greptile's MCP server uses HTTP transport with a `Bearer ${GREPTILE_API_KEY}` Authorization header; the Claude Code plugin cache at `.mcp.json` references the env var, so the fix is to set GREPTILE_API_KEY persistently via `setx` (user-scope), then revert any literal-token edits to the cached config.",
       "reasoning": [
         "Greptile's MCP config uses `${GREPTILE_API_KEY}` substitution for the Authorization Bearer header — setting the env var is the intended path, not hardcoding the token into the cached .mcp.json.",

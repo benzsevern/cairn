@@ -3,7 +3,7 @@
     {
       "slug": "er-benchmark-design",
       "name": "NPPES entity-resolution benchmark: Dedupe.io vs Golden Suite",
-      "kind": "new",
+      "kind": "introduced",
       "summary": "Design a head-to-head entity-resolution benchmark using a 500k-row NPPES (CMS provider data) sample, comparing the canonical OSS tool Dedupe.io against GoldenMatch. Published as a blog post titled 'The OSS ER Bargain'.",
       "reasoning": [
         "Chose NPPES (CMS Medicare/Medicaid provider data) as the dataset because it is public, large (6M+ rows), and has classic dirty-ER properties: name variants, address drift, org-vs-individual collisions.",
@@ -21,7 +21,7 @@
     {
       "slug": "ccms-cluster-comparison",
       "name": "CCMS cluster comparison + sensitivity analysis for ground-truth-free ER evaluation",
-      "kind": "new",
+      "kind": "introduced",
       "summary": "Without a ground-truth linkage for NPPES, evaluate Dedupe vs GoldenMatch via (a) structural cluster agreement metrics like Adjusted Rand Index and pairwise-overlap and (b) per-tool sensitivity analysis that varies thresholds and observes cluster-shape stability.",
       "reasoning": [
         "Running both tools on NPPES without ground truth means any raw precision/recall number would be fiction.",
@@ -39,7 +39,7 @@
     {
       "slug": "spec-review-loop",
       "name": "Iterative spec-reviewer dispatch loop",
-      "kind": "new",
+      "kind": "introduced",
       "summary": "Write a design spec, dispatch a reviewer subagent against it, apply all blocking issues the reviewer finds, then re-dispatch on the revised spec and iterate until the reviewer returns no blockers. Same pattern repeats for the implementation plan.",
       "reasoning": [
         "First-pass spec draft flagged 12 issues by the reviewer, including scope and feasibility blockers.",

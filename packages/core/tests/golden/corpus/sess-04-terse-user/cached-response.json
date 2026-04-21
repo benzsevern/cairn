@@ -3,7 +3,7 @@
     {
       "slug": "mcp-resources-list-handler",
       "name": "MCP servers must register empty resources/list and prompts/list handlers",
-      "kind": "new",
+      "kind": "introduced",
       "summary": "Smithery's registry scanner probes every MCP server for resources/list and prompts/list regardless of declared capabilities; servers that only implement tools must register no-op handlers or the Python SDK returns JSON-RPC error -32601 (Method not found), which surfaces in Claude Code as 'Failed to list resources' warnings.",
       "reasoning": [
         "Root cause: the -32601 error from Smithery comes from resources/list being invoked on a server that only registered list_tools and call_tool handlers.",

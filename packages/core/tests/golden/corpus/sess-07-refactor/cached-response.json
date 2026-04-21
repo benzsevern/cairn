@@ -3,7 +3,7 @@
     {
       "slug": "domain-aware-autoconfig",
       "name": "Domain-aware auto-config via YAML presets",
-      "kind": "new",
+      "kind": "introduced",
       "summary": "Extend `auto_configure_df()` with a domain detector that chooses a tuned YAML preset (equipment, people, financial, healthcare, electronics, …) as the starting config, then layers the existing regex/profiler heuristics on top. Fixes brittleness where the generic profiler produced bad blocking/scoring configs for domain-specific data like 401k bulldozer equipment.",
       "reasoning": [
         "Root cause of the 401K equipment dedup failure: the current auto_configure_df is purely generic — column-name regex plus data profiling — with no concept of 'this is equipment data, use these matchkeys and these blocking rules'.",
@@ -25,7 +25,7 @@
     {
       "slug": "preflight-sample-run",
       "name": "Autonomous preflight sample run with auto-downgrade",
-      "kind": "new",
+      "kind": "introduced",
       "summary": "Before the real dedupe_df run, invoke a `preflight()` stage that takes a ~5K-row stratified sample, runs it through the full pipeline, measures actual memory / pair count / LLM tokens, projects the full-run cost, and either proceeds or auto-downgrades the config (smaller blocks, cheaper scorer, skip oversize) when projections exceed the safety budget — all without user interaction.",
       "reasoning": [
         "Constraint from the user: because GoldenMatch is a library embedded in Python backends, preflight cannot require interactive approval — it has to self-correct.",
@@ -45,8 +45,8 @@
     {
       "slug": "runtime-circuit-breaker",
       "name": "Runtime circuit breakers for memory / cost / time budgets",
-      "kind": "new",
-      "summary": "Even with a good preflight projection, real runs can diverge (skewed blocks, LLM latency spikes, memory fragmentation from consecutive runs). Add a `CircuitBreaker` that is checked between blocks inside `scorer.py` and between LLM batches inside `llm_scorer.py`; when a budget (memory / LLM spend / wall-clock) is exceeded it raises `CircuitBreakerError` or takes a `CircuitAction` (e.g. skip remaining oversize blocks).",
+      "kind": "introduced",
+      "summary": "Real runs diverge from preflight projections (skewed blocks, LLM latency spikes, memory fragmentation). Add a `CircuitBreaker` polled between blocks in scorer.py and between LLM batches in llm_scorer.py; when a memory/cost/time budget is exceeded it raises `CircuitBreakerError` or takes a `CircuitAction` (skip oversize blocks).",
       "reasoning": [
         "Preflight alone is insufficient because Python doesn't fully reclaim memory from prior runs — static projections drift on consecutive invocations.",
         "Chose a poll-between-work-units model rather than a background watchdog thread because it plays nicely with Polars locks and avoids cross-thread Python GIL surprises.",
