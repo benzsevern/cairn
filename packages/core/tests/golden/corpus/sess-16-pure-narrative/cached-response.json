@@ -1,0 +1,22 @@
+{
+  "concepts": [
+    {
+      "slug": "inventory-locking-strategy",
+      "name": "Inventory service locking strategy",
+      "kind": "introduced",
+      "summary": "Use optimistic locking (version-guarded UPDATE with retry) as the default for inventory writes, and escalate hot SKUs to pessimistic row locks (SELECT ... FOR UPDATE) based on a rolling write-rate tier with hysteresis.",
+      "reasoning": [
+        "Chose optimistic locking as the default because most SKUs see low concurrent writes, so the no-lock-held path is cheap and retries are rare.",
+        "Rejected pessimistic-only locking because it serializes writers on cold SKUs where there is no real contention, adding latency for no benefit.",
+        "Escalate hot SKUs (>= 20 writes/minute on a 60-second rolling window) to SELECT ... FOR UPDATE because optimistic retry rates spike under flash-sale contention.",
+        "Use hysteresis between promote (20/min) and demote (15/min) thresholds so borderline SKUs do not flicker between lock strategies.",
+        "Demote a hot SKU after 5 minutes below the demote threshold."
+      ],
+      "depends_on": [],
+      "files": [],
+      "transcript_refs": [1, 3, 5],
+      "confidence": "high"
+    }
+  ],
+  "unknowns": []
+}
