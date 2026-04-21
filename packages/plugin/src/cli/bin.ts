@@ -5,6 +5,7 @@ import { initCommand } from './commands/comprehend-init.js';
 import { analyzeCommand } from './commands/comprehend.js';
 import { statusCommand } from './commands/comprehend-status.js';
 import { backfillCommand } from './commands/comprehend-backfill.js';
+import { rerunCommand } from './commands/comprehend-rerun.js';
 
 export async function runCli(argv: readonly string[]): Promise<void> {
   const program = new Command();
@@ -13,6 +14,7 @@ export async function runCli(argv: readonly string[]): Promise<void> {
   analyzeCommand(program);
   statusCommand(program);
   backfillCommand(program);
+  rerunCommand(program);
   await program.parseAsync([...argv]);
 }
 
