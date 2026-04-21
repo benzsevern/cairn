@@ -51,12 +51,16 @@ Respond with a **single JSON object** and NOTHING ELSE. No preamble, no code fen
 ### Field rules
 
 - **slug**: lowercase kebab-case, no articles ("the", "a"), singular when possible. If an `<existing-concepts>` entry already describes this concept, REUSE its exact slug.
+  - **Slug reuse is mandatory, not optional.** Before creating any new slug, scan `<existing-concepts>` for a concept whose *purpose* overlaps. If this session tweaks, tunes, extends, or adds a sub-feature of an existing concept (e.g. adjusting its threshold, adding a stage/filter, fixing a bug inside it), emit ONE entry that reuses the existing slug with `kind: "refined"` — do NOT mint a new slug like `<existing-slug>-threshold`, `<existing-slug>-stage2`, or `<existing-slug>-fix`. Sub-features belong in the `reasoning` bullets of the parent concept, not as separate concepts.
+  - **Do not use generic textbook terms** as slugs (e.g. `optimistic-locking`, `pessimistic-locking`, `rate-limiting`, `caching`, `idempotency`). These are categories, not project concepts. Name the *specific mechanism* built in this project (e.g. `inventory-hot-tier-locking`, `edge-rate-limiting`, `api-response-cache`). If the session only discusses a generic technique without building a concrete instance of it, omit it — put the discussion in `unknowns` or fold it into the specific concept's `reasoning`.
+  - **Prefer the user's own framing.** If `<user-goal>` or the user turn names the thing (e.g. "fuzzy matching", "webhook idempotency"), use that noun phrase as the slug rather than inventing a more specific domain-tagged name (`crm-name-matching`, `payment-webhook-handler`).
 - **name**: 2–6 words, title case, human-readable.
 - **kind**:
   - `"introduced"` if this session is the first to establish the concept (check `<existing-concepts>` — if it's there, it's not introduced).
   - `"refined"` if the concept existed and this session modified, extended, or corrected it.
   - `"referenced"` if the session only uses or reads the concept without changing it.
 - **summary**: 1–2 sentences. Describe the concept's purpose; do not narrate the session.
+- **Granularity — one concept per architectural unit.** A concept is a durable, named thing a future reader needs to understand the system (a module, a mechanism, a policy). It is NOT: an individual code edit, a version bump, a dependency pin, a spec/plan document, a bug fix, a test fix, or a review step. Prefer emitting 1–3 concepts per session. If you find yourself writing more than 4, you are almost certainly splintering one concept into its implementation steps — merge them and list the steps as `reasoning` or `files` on the parent. Multi-repo coordinated changes, release workflows, and support scaffolding belong inside the parent concept they serve, not as siblings.
 - **reasoning**: every bullet must be a direct paraphrase of a "because" statement visible in the segments. If the segments don't contain justification for a decision, do NOT fabricate one — emit an `unknowns` entry instead.
 - **depends_on**: slugs this concept cannot stand alone without. Either from `<existing-concepts>` or from other entries in this same `concepts` array.
 - **files**: file paths touched by this concept, as seen in the assistant's actions. Relative paths as written. At most 50.
@@ -134,6 +138,59 @@ A correct output would be:
     }
   ],
   "unknowns": []
+}
+```
+
+### Example 2 (slug reuse + refined kind)
+
+Given this input:
+
+```
+<mission>
+  <user-goal>Fix short-name false positives in fuzzy matching.</user-goal>
+  <existing-concepts>
+    - fuzzy-matching: "Fuzzy Matching" (files: src/matching/fuzzy.ts) — "Levenshtein-based approximate name matcher."
+  </existing-concepts>
+</mission>
+
+<segment index="1">
+  <user>Short names are collapsing into each other. Tune the threshold.</user>
+  <assistant-actions>
+    - tool-use[Edit] src/matching/fuzzy.ts
+  </assistant-actions>
+  <assistant-narrative>
+    Switched from fixed threshold of 3 to length-relative max(1, floor(len/4)) because short names were collapsing. Added a shared-prefix-of-2 secondary guard on short-name matches.
+  </assistant-narrative>
+</segment>
+```
+
+A correct output REUSES the existing slug as a single `refined` concept (NOT two new slugs like `fuzzy-matching-threshold` and `short-name-prefix-guard`):
+
+```
+{
+  "concepts": [
+    {
+      "slug": "fuzzy-matching",
+      "name": "Fuzzy Matching",
+      "kind": "refined",
+      "summary": "Levenshtein-based approximate name matcher, now using a length-relative edit-distance threshold and a shared-prefix guard for short names.",
+      "reasoning": [
+        "Switched from fixed threshold of 3 to length-relative max(1, floor(len/4)) because short names were collapsing into each other.",
+        "Added a shared-prefix-of-2 secondary guard on short-name matches as a second signal."
+      ],
+      "depends_on": [],
+      "files": ["src/matching/fuzzy.ts"],
+      "transcript_refs": [1],
+      "confidence": "high"
+    }
+  ],
+  "unknowns": [
+    {
+      "slug_ref": "fuzzy-matching",
+      "question": "No reasoning was given for why a shared prefix length of 2 specifically was chosen.",
+      "recovery_prompt": "Why a shared token prefix of length 2 for the short-name guard rather than 1 or 3?"
+    }
+  ]
 }
 ```
 
