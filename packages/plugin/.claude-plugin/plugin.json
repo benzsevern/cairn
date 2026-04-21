@@ -1,0 +1,8 @@
+{
+  "name": "comprehend-fos",
+  "version": "0.0.1",
+  "description": "Passive comprehension layer for Claude Code sessions — background analysis via the Stop hook.",
+  "author": { "name": "FOS" },
+  "license": "MIT",
+  "keywords": ["claude-code", "comprehension", "analysis"]
+}

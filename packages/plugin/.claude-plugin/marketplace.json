@@ -1,0 +1,11 @@
+{
+  "name": "fos-dev",
+  "owner": { "name": "FOS" },
+  "plugins": [
+    {
+      "name": "comprehend-fos",
+      "source": "./",
+      "description": "Passive comprehension layer for Claude Code sessions"
+    }
+  ]
+}

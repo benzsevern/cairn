@@ -8,7 +8,8 @@
     "build": "tsup",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "install-local": "claude plugins marketplace add ./ && claude plugins install comprehend-fos@fos-dev"
   },
   "dependencies": {
     "@fos/core": "workspace:*",
