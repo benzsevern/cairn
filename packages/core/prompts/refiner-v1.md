@@ -113,6 +113,16 @@ The `recovery_prompt` should be something the user could paste back into Claude 
 - **No duplicate slugs** within a single response.
 - **No invented dependencies.** If the transcript doesn't show it, don't write it.
 
+## Pre-output checklist (run through this before you emit)
+
+Before finalizing, scan every concept you are about to emit and check each item. If any check fails, fix it.
+
+1. **Artifact-as-concept?** Is the slug a blog post, resume, spec doc, version bump, release, PR description, or similar *deliverable that describes or ships* a concept? If yes — REMOVE it. The underlying mechanism is the concept; the deliverable is not. (Never emit slugs ending in `-blog-post`, `-release`, `-version-bump`, `-resume`, `-spec-doc`, `-pr-description`.)
+2. **Per-artifact splintering?** If you have two or more concepts whose slugs share a mechanism word (e.g., both contain `-install-fix`, `-auth-fix`, `-env-var`), ask: do they share a single root cause? If yes — MERGE them into one concept whose slug names the mechanism (not any specific artifact). Move the specific artifacts into `files` and `reasoning`.
+3. **Slug fidelity.** If the user or transcript repeatedly uses a specific noun phrase, does your slug match that phrase? Count how many times the user says "circuit breaker", "autoconfig", "preflight", etc. If the phrase appears ≥2 times, the slug should contain that exact phrase (hyphenated). Do not shorten or rewrite (never `auto-configure` when the user says "autoconfig"; never `circuit-breaker` when the user says "runtime circuit breaker").
+4. **Existing-slug never-introduced.** For every concept whose slug appears in `<existing-concepts>`, confirm `kind` is `refined` or `referenced` — never `introduced`.
+5. **Generic textbook term as slug?** Is the slug a bare category name (`rate-limiting`, `caching`, `idempotency`, `optimistic-locking`)? If yes — rename it to encode the project-specific subject (`inventory-rate-limiting`, `inventory-locking-strategy`). Exception: if the session is a pure design deliberation about the category itself (Case A above), use the decision-subject form (`inventory-locking-strategy`), never the technique name.
+
 ---
 
 ## Example (few-shot)
