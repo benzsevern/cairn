@@ -1,5 +1,8 @@
 {
   "required_slugs": ["edge-rate-limiting"],
+  "slug_aliases": {
+    "edge-rate-limiting": ["public-api-rate-limiting", "cloudflare-rate-limiting", "public-api-edge-rate-limiting"]
+  },
   "slug_reuse_context": [],
   "required_reasoning_substrings": {
     "edge-rate-limiting": ["cloudflare", "autoscal"]
