@@ -1,0 +1,21 @@
+{
+  "concepts": [
+    {
+      "slug": "entity-resolution",
+      "name": "Entity resolution: borderline-band Jaccard filter",
+      "kind": "refined",
+      "summary": "Refine the entity-resolution pipeline with a stage-2 filter: when stage-1 edit distance lands within 1 of the length-relative threshold (borderline band), require Jaccard token overlap >= 0.5 to accept the match.",
+      "reasoning": [
+        "Stage-1 length-relative Levenshtein still does the heavy lifting; stage-2 only intervenes on borderline scores to reject human-implausible matches.",
+        "Chose Jaccard on tokenized names because inputs have already been NFKD-normalized and punctuation-stripped, so tokenization is reliable. Jaccard is cheap, symmetric, and interpretable at a 0.5 threshold.",
+        "Rejected cosine over character n-grams because it reintroduces short-name noise sensitivity — the exact failure mode the stage-1 length-relative threshold was designed to avoid.",
+        "This refines the existing entity-resolution concept; it is not a new pipeline."
+      ],
+      "depends_on": [],
+      "files": ["src/match/fuzzy.ts"],
+      "transcript_refs": [1, 3, 5],
+      "confidence": "high"
+    }
+  ],
+  "unknowns": []
+}
