@@ -107,8 +107,9 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
 }
 
 // CLI entry: node dist/worker/analyze-worker.js <projectRoot> <transcriptPath> <sessionId>
-const entryHref = process.argv[1] ? pathToFileURL(process.argv[1]).href : '';
-if (import.meta.url === entryHref) {
+// Basename check survives tsup's bundle-time dead-code elimination (see stop.ts).
+const _argv1 = process.argv[1] ?? '';
+if (_argv1.endsWith('analyze-worker.js') || _argv1.endsWith('analyze-worker.ts')) {
   const [, , projectRoot, transcriptPath, sessionId] = process.argv;
   if (!projectRoot || !transcriptPath || !sessionId) {
     console.error('usage: analyze-worker <projectRoot> <transcriptPath> <sessionId>');

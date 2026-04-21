@@ -16,11 +16,10 @@ export async function runCli(argv: readonly string[]): Promise<void> {
   await program.parseAsync([...argv]);
 }
 
-// Windows-safe "run as main" check: normalize process.argv[1] via pathToFileURL
-// before comparing against import.meta.url (plain string compare breaks on
-// Windows drive-letter paths).
-const entryHref = process.argv[1] ? pathToFileURL(process.argv[1]).href : '';
-if (import.meta.url === entryHref) {
+// Basename check survives tsup's bundle-time dead-code elimination of
+// `import.meta.url === pathToFileURL(argv[1]).href` (see plugin/src/hooks/stop.ts).
+const _argv1 = process.argv[1] ?? '';
+if (_argv1.endsWith('bin.js') || _argv1.endsWith('bin.ts')) {
   runCli(process.argv).catch((err) => {
     console.error(err instanceof Error ? err.message : err);
     process.exit(1);

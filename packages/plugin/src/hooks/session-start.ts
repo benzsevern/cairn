@@ -137,8 +137,9 @@ export async function runSessionStart(args: SessionStartArgs): Promise<number> {
   return 0;
 }
 
-const entryHref = process.argv[1] ? pathToFileURL(process.argv[1]).href : '';
-if (import.meta.url === entryHref) {
+// See note in stop.ts — basename check survives tsup's bundle-time dead-code elimination.
+const _argv1 = process.argv[1] ?? '';
+if (_argv1.endsWith('session-start.js') || _argv1.endsWith('session-start.ts')) {
   void (async () => {
     try {
       const { discoverProjectRoot } = await import('../discover-project.js');

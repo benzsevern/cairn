@@ -159,8 +159,13 @@ export async function readPayloadFromClaudeCode(
   }
 }
 
-const entryHref = process.argv[1] ? pathToFileURL(process.argv[1]).href : '';
-if (import.meta.url === entryHref) {
+// Detect "running as the bundled script" via a basename check on argv[1].
+// We can't use `import.meta.url === pathToFileURL(process.argv[1]).href` because
+// tsup/esbuild evaluates the comparison at bundle time and tree-shakes the
+// block. basename matching on process.argv[1] survives bundling and doesn't
+// fire during vitest (which runs its own runner as argv[1], not our script).
+const _argv1 = process.argv[1] ?? '';
+if (_argv1.endsWith('stop.js') || _argv1.endsWith('stop.ts')) {
   void (async () => {
     try {
       const { discoverProjectRoot, sessionContextFromPayload } = await import('../discover-project.js');
