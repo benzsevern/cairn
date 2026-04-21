@@ -645,15 +645,15 @@ export interface RerunReport {
 }
 
 export async function runRerun(args: RerunArgs): Promise<RerunReport> {
-  if (args.mode !== 'rebuild') {
-    if (!(await hasProjectConsent(args.projectRoot))) {
-      throw new Error('Project not opted in; run /comprehend-fos:comprehend-init');
-    }
-  } else {
-    // even bare mode needs opt-in per spec §2.2 opt-in gate
-    if (!(await hasProjectConsent(args.projectRoot))) {
-      throw new Error('Project not opted in; run /comprehend-fos:comprehend-init');
-    }
+  // All modes require project opt-in (bare rebuild reads sessions + writes
+  // derived view under .comprehension/, so acting on a non-opted-in dir is
+  // surprising). Spec §2.2 opt-in gate.
+  if (!(await hasProjectConsent(args.projectRoot))) {
+    const err: Error & { exitCode?: number } = Object.assign(
+      new Error('Project not opted in; run /comprehend-fos:comprehend-init'),
+      { exitCode: 3 },
+    );
+    throw err;
   }
 
   const now = args.now ?? (() => new Date());
