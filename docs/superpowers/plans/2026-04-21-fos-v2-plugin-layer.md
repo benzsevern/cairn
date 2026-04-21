@@ -1883,13 +1883,19 @@ Confirm:
 
 - [ ] **Step 4: Manual failure-path dogfood**
 
-Intentionally break `claude` auth (e.g., temporarily rename the `claude` binary). End a session. Confirm:
+Force a refiner failure **without** modifying the real `claude` binary (portable across Windows/macOS/Linux):
+
+Option A (preferred — portable): pre-seed `.comprehension/.fos/refiner-prompt.md` with obviously-broken prompt text ("Respond with exactly the string: 'not json'") so the refiner produces unparseable output → `RefinerFailure` after 2 attempts. Remove the override after the test.
+
+Option B: run a session with `PATH=""` prepended so `claude` is not findable → `ClaudeInvokeError`. Easier to unwind (just open a new shell).
+
+After triggering, confirm:
 - Worker logs `worker_failure`.
 - Next SessionStart shows the ⚠ banner.
 - `/comprehend status` lists the failure.
 - `/comprehend status --ack` dismisses it.
 
-Restore `claude` auth.
+Undo the induced failure condition (delete the override prompt or exit the PATH-less shell).
 
 - [ ] **Step 5: Write dogfood notes** at `docs/superpowers/plans/2026-04-21-fos-v2-dogfood-notes.md`. Document any bugs + their fixes (apply fixes inline during this step).
 
