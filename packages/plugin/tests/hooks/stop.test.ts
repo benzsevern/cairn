@@ -126,6 +126,42 @@ describe('stop hook', () => {
     expect(pending.queue.map((e) => e.session_id)).toEqual(['pre-existing', 'sess-new']);
   });
 
+  it('consent + held lock + two concurrent runStop calls → both session ids land in pending.json', async () => {
+    await writeProjectConsent(tmp, { opted_in_at: fixedNow().toISOString() });
+    // Hold the analysis lock so both runStop calls take the queue path.
+    await tryAcquireLock(tmp, { pid: process.pid, session_id: 'holder' }, { now: fixedNow });
+
+    const spawnChild = vi.fn();
+    // Fire both in parallel — the queue-lock must serialize the read-modify-write
+    // so neither entry is lost.
+    const [c1, c2] = await Promise.all([
+      runStop({
+        projectRoot: tmp,
+        sessionId: 'race-a',
+        transcriptPath: '/tmp/race-a.jsonl',
+        now: fixedNow,
+        spawnChild,
+      }),
+      runStop({
+        projectRoot: tmp,
+        sessionId: 'race-b',
+        transcriptPath: '/tmp/race-b.jsonl',
+        now: fixedNow,
+        spawnChild,
+      }),
+    ]);
+
+    expect(c1).toBe(0);
+    expect(c2).toBe(0);
+    expect(spawnChild).not.toHaveBeenCalled();
+
+    const pending = JSON.parse(await readFile(pendingQueuePath(tmp), 'utf8')) as {
+      queue: Array<{ session_id: string }>;
+    };
+    const ids = pending.queue.map((e) => e.session_id).sort();
+    expect(ids).toEqual(['race-a', 'race-b']);
+  });
+
   it('consent + stale lock (age > 30min, pid dead) → reclaimed, spawn proceeds', async () => {
     await writeProjectConsent(tmp, { opted_in_at: fixedNow().toISOString() });
     // Seed a lock whose pid is not running.

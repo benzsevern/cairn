@@ -4,7 +4,7 @@ import { writeFile, readFile, mkdir, rename, appendFile } from 'node:fs/promises
 import { resolve, dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import { hasProjectConsent } from '../consent.js';
-import { tryAcquireLock } from '../lock.js';
+import { tryAcquireLock, tryAcquireQueueLock, releaseQueueLock } from '../lock.js';
 import { appendLogEvent } from '../log.js';
 import { pendingQueuePath } from '../plugin-paths.js';
 
@@ -38,19 +38,33 @@ async function queuePending(
   sessionId: string,
   transcriptPath: string,
   queuedAt: string,
+  now: () => Date,
 ): Promise<void> {
-  let current: { queue: Array<{ session_id: string; transcript_path: string; queued_at: string }> } = { queue: [] };
+  // Serialize concurrent Stop hooks via a short-lived queue.lock file so two
+  // racing writers can't each read the same pending.json and clobber one another.
+  const acquired = await tryAcquireQueueLock(
+    projectRoot,
+    { pid: process.pid, session_id: sessionId },
+    { now },
+  );
+  // If we still can't get the lock after retries, fall through and best-effort
+  // write — losing a queued entry is preferable to blocking Claude Code shutdown.
   try {
-    const raw = await readFile(pendingQueuePath(projectRoot), 'utf8');
-    current = JSON.parse(raw);
-  } catch (err) {
-    if ((err as { code?: string }).code !== 'ENOENT') throw err;
+    let current: { queue: Array<{ session_id: string; transcript_path: string; queued_at: string }> } = { queue: [] };
+    try {
+      const raw = await readFile(pendingQueuePath(projectRoot), 'utf8');
+      current = JSON.parse(raw);
+    } catch (err) {
+      if ((err as { code?: string }).code !== 'ENOENT') throw err;
+    }
+    current.queue.push({ session_id: sessionId, transcript_path: transcriptPath, queued_at: queuedAt });
+    await mkdir(dirname(pendingQueuePath(projectRoot)), { recursive: true });
+    const tmp = `${pendingQueuePath(projectRoot)}.tmp`;
+    await writeFile(tmp, JSON.stringify(current, null, 2), 'utf8');
+    await rename(tmp, pendingQueuePath(projectRoot));
+  } finally {
+    if (acquired) await releaseQueueLock(projectRoot);
   }
-  current.queue.push({ session_id: sessionId, transcript_path: transcriptPath, queued_at: queuedAt });
-  await mkdir(dirname(pendingQueuePath(projectRoot)), { recursive: true });
-  const tmp = `${pendingQueuePath(projectRoot)}.tmp`;
-  await writeFile(tmp, JSON.stringify(current, null, 2), 'utf8');
-  await rename(tmp, pendingQueuePath(projectRoot));
 }
 
 function spawnChildDefault(args: { projectRoot: string; transcriptPath: string; sessionId: string }): void {
@@ -76,7 +90,7 @@ export async function runStop(args: StopArgs): Promise<number> {
   const spawnChild = args.spawnChild ?? spawnChildDefault;
 
   if (!acquired) {
-    await queuePending(args.projectRoot, args.sessionId, args.transcriptPath, now().toISOString());
+    await queuePending(args.projectRoot, args.sessionId, args.transcriptPath, now().toISOString(), now);
     return 0;
   }
 

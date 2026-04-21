@@ -5,7 +5,8 @@ export type LogEvent =
   | { kind: 'spawned_at'; session_id: string; timestamp: string; transcript_path?: string }
   | { kind: 'worker_started'; session_id: string; timestamp: string }
   | { kind: 'worker_success'; session_id: string; timestamp: string; concept_count: number; unknown_count: number; elapsed_ms: number }
-  | { kind: 'worker_failure'; session_id: string; timestamp: string; error_name: string; message: string; elapsed_ms: number };
+  | { kind: 'worker_failure'; session_id: string; timestamp: string; error_name: string; message: string; elapsed_ms: number }
+  | { kind: 'backfill_batch'; session_id: '_batch'; timestamp: string; analyzed: number; failed: number; total_cost_usd: number; elapsed_ms: number };
 
 export async function appendLogEvent(projectRoot: string, sessionId: string, event: LogEvent): Promise<void> {
   await mkdir(logsDir(projectRoot), { recursive: true });

@@ -61,6 +61,10 @@ export function pendingQueuePath(projectRoot: string): string {
   return join(fosDir(projectRoot), 'pending.json');
 }
 
+export function queueLockPath(projectRoot: string): string {
+  return join(fosDir(projectRoot), 'queue.lock');
+}
+
 export function logsDir(projectRoot: string): string {
   return join(fosDir(projectRoot), 'logs');
 }

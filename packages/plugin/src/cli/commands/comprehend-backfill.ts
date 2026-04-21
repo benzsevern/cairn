@@ -143,6 +143,7 @@ export async function runBackfillSubcommand(
     }
 
     const backfillFn = deps.backfillImpl ?? coreBackfill;
+    const runStartMs = now().getTime();
     const report = await backfillFn({
       projectRoot,
       discovered: selected,
@@ -151,29 +152,19 @@ export async function runBackfillSubcommand(
       now,
     });
 
-    for (const d of selected) {
-      const failure = report.failed.find((f) => f.session_id === d.sessionId);
-      const ts = now().toISOString();
-      if (failure) {
-        await appendLogEvent(projectRoot, d.sessionId, {
-          kind: 'worker_failure',
-          session_id: d.sessionId,
-          timestamp: ts,
-          error_name: 'BackfillFailure',
-          message: failure.reason,
-          elapsed_ms: 0,
-        });
-      } else {
-        await appendLogEvent(projectRoot, d.sessionId, {
-          kind: 'worker_success',
-          session_id: d.sessionId,
-          timestamp: ts,
-          concept_count: 0,
-          unknown_count: 0,
-          elapsed_ms: 0,
-        });
-      }
-    }
+    // Core's BackfillReport doesn't expose per-session concept/unknown counts, so
+    // writing fabricated worker_success / worker_failure events would mislead
+    // downstream scanners. Instead, emit one aggregate batch event per run.
+    const elapsedMs = Math.max(0, now().getTime() - runStartMs);
+    await appendLogEvent(projectRoot, '_batch', {
+      kind: 'backfill_batch',
+      session_id: '_batch',
+      timestamp: now().toISOString(),
+      analyzed: report.analyzed,
+      failed: report.failed.length,
+      total_cost_usd: report.total_cost_usd,
+      elapsed_ms: elapsedMs,
+    });
 
     stdout.write(
       `Backfill complete: discovered=${report.discovered} analyzed=${report.analyzed} failed=${report.failed.length} cost_usd=${report.total_cost_usd.toFixed(4)}\n`,

@@ -11,6 +11,7 @@ The user ran `/comprehend`. Execute this command by following these steps **in o
 Claude Code exposes the current session's `transcript_path` and `session_id` via the hook-payload context. Capture both from the session context.
 
 - If the user passed a session identifier as the command argument, use that as `--session-id` and leave `--transcript-path` empty.
+  - ⚠ Non-dry-run analyze requires `--transcript-path` — the CLI will exit 2 if you omit it. If the user only supplied a session id, either (a) locate the transcript JSONL under `~/.claude/projects/<hash>/<session-id>.jsonl` and pass it, or (b) tell the user you can't re-analyze without the transcript path and suggest running `/comprehend status` for what was already analyzed.
 - Otherwise, pass the current session's `transcript_path` **and** `session_id` explicitly to the CLI.
 
 ## 2. (Optional) Confirm re-analysis
@@ -37,6 +38,7 @@ The command is synchronous — the user is at the keyboard.
 
 - **Exit 0** — print stdout (the analyzed-session summary).
 - **Exit 1** — analysis failed; print stderr.
+- **Exit 2** — required input missing (most commonly `--transcript-path` for a non-dry-run invocation). Print stderr and tell the user what's missing.
 - **Exit 3** — project not opted in. Suggest `/comprehend init`.
 - **Exit 4** — analysis lock held (a Stop-hook worker is running). Tell the user analysis is already running in the background; suggest `/comprehend status`.
 

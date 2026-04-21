@@ -89,6 +89,28 @@ describe('comprehend status subcommand', () => {
     expect(json.ack_applied).toBe(false);
   });
 
+  it('backfill_batch events render as a distinct BACKFILL line in recent runs', async () => {
+    await writeProjectConsent(tmp, { opted_in_at: fixedNow().toISOString() });
+    await appendLogEvent(tmp, '_batch', {
+      kind: 'backfill_batch',
+      session_id: '_batch',
+      timestamp: '2026-04-20T13:00:00.000Z',
+      analyzed: 7,
+      failed: 2,
+      total_cost_usd: 0.456,
+      elapsed_ms: 15000,
+    });
+
+    const out = capture();
+    const code = await runStatusSubcommand(
+      { projectRoot: tmp },
+      { stdout: out.stream, stderr: capture().stream, now: fixedNow },
+    );
+    expect(code).toBe(0);
+    const text = out.text();
+    expect(text).toMatch(/BACKFILL @ 2026-04-20T13:00:00.000Z analyzed=7 failed=2 cost_usd=0\.4560/);
+  });
+
   it('--ack touches acked_at and reports ack_applied in JSON', async () => {
     await writeProjectConsent(tmp, { opted_in_at: fixedNow().toISOString() });
     const out = capture();

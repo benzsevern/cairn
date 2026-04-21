@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtemp, rm, stat } from 'node:fs/promises';
+import { mkdtemp, rm, stat, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Writable } from 'node:stream';
@@ -8,7 +8,7 @@ import {
   type BackfillDeps,
 } from '../../../src/cli/commands/comprehend-backfill.js';
 import { writeProjectConsent } from '../../../src/consent.js';
-import { analysisLockPath } from '../../../src/plugin-paths.js';
+import { analysisLockPath, logFilePath } from '../../../src/plugin-paths.js';
 
 function capture(): { stream: Writable; text: () => string } {
   const chunks: Buffer[] = [];
@@ -130,6 +130,54 @@ describe('comprehend backfill subcommand', () => {
     expect(out.text()).toMatch(/analyzed=2/);
     // Lock released after the run.
     await expect(stat(analysisLockPath(tmp))).rejects.toThrow();
+  });
+
+  it('--yes emits a single backfill_batch log event with aggregate totals (not per-session)', async () => {
+    await writeProjectConsent(tmp, { opted_in_at: fixedNow().toISOString() });
+
+    const sessions = [
+      { sessionId: 's1', transcriptPath: '/tmp/s1.jsonl', sizeBytes: 500, analyzedAt: '2026-04-19T10:00:00.000Z' },
+      { sessionId: 's2', transcriptPath: '/tmp/s2.jsonl', sizeBytes: 700, analyzedAt: '2026-04-19T11:00:00.000Z' },
+      { sessionId: 's3', transcriptPath: '/tmp/s3.jsonl', sizeBytes: 300, analyzedAt: '2026-04-19T12:00:00.000Z' },
+    ];
+    const discoverSessionsImpl = vi.fn(async () => sessions);
+    const backfillImpl = vi.fn(async () => ({
+      discovered: 3,
+      analyzed: 2,
+      skipped: [],
+      failed: [{ session_id: 's3', reason: 'boom' }],
+      total_cost_usd: 0.1234,
+    }));
+
+    const code = await runBackfillSubcommand(
+      { projectRoot: tmp, yes: true },
+      {
+        ...baseDeps(),
+        discoverSessionsImpl: discoverSessionsImpl as unknown as BackfillDeps['discoverSessionsImpl'],
+        backfillImpl: backfillImpl as unknown as BackfillDeps['backfillImpl'],
+        stdout: capture().stream,
+        stderr: capture().stream,
+      },
+    );
+    expect(code).toBe(0);
+
+    // Per-session logs should NOT have been written.
+    await expect(stat(logFilePath(tmp, 's1'))).rejects.toThrow();
+    await expect(stat(logFilePath(tmp, 's2'))).rejects.toThrow();
+    await expect(stat(logFilePath(tmp, 's3'))).rejects.toThrow();
+
+    // One aggregate batch event should exist at _batch.log.
+    const raw = await readFile(logFilePath(tmp, '_batch'), 'utf8');
+    const lines = raw.split('\n').filter((l) => l.trim().length > 0).map((l) => JSON.parse(l));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({
+      kind: 'backfill_batch',
+      session_id: '_batch',
+      analyzed: 2,
+      failed: 1,
+      total_cost_usd: 0.1234,
+    });
+    expect(typeof lines[0].elapsed_ms).toBe('number');
   });
 
   it('no --show-preview and no --yes exits 2 (cost-estimate step missing)', async () => {

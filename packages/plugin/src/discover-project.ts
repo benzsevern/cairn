@@ -6,7 +6,10 @@ async function exists(p: string): Promise<boolean> {
   try { await access(p); return true; } catch { return false; }
 }
 
-export async function discoverProjectRoot(cwd: string): Promise<string> {
+export async function discoverProjectRoot(
+  cwd: string,
+  opts: { warnOnFallthrough?: boolean; stderr?: NodeJS.WritableStream } = {},
+): Promise<string> {
   let current = resolve(cwd);
   // walk up at most 40 levels
   for (let i = 0; i < 40; i++) {
@@ -17,7 +20,15 @@ export async function discoverProjectRoot(cwd: string): Promise<string> {
     if (parent === current) break;
     current = parent;
   }
-  return resolve(cwd);
+  const fallback = resolve(cwd);
+  if (opts.warnOnFallthrough) {
+    const stream = opts.stderr ?? process.stderr;
+    stream.write(
+      `[fos] warning: no .git/ or .comprehension/ ancestor found above ${fallback}; ` +
+        `falling back to cwd — .fos state may scatter. Run \`/comprehend init\` or pin --project-root.\n`,
+    );
+  }
+  return fallback;
 }
 
 export async function findClaudeCodeProjectHash(

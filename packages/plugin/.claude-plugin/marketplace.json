@@ -1,6 +1,9 @@
 {
   "name": "fos-dev",
   "owner": { "name": "FOS" },
+  "metadata": {
+    "description": "FOS development marketplace (self-wrapper for the comprehend-fos plugin)."
+  },
   "plugins": [
     {
       "name": "comprehend-fos",

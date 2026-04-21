@@ -33,6 +33,33 @@ describe('discoverProjectRoot', () => {
     const result = await discoverProjectRoot(nested);
     expect(resolve(result)).toBe(resolve(nested));
   });
+
+  it('warnOnFallthrough: true writes a warning to stderr but still returns the fallback', async () => {
+    const nested = join(tmp, 'orphan-warn');
+    await mkdir(nested, { recursive: true });
+    const chunks: Buffer[] = [];
+    const { Writable } = await import('node:stream');
+    const stderr = new Writable({
+      write(chunk, _enc, cb) { chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk); cb(); },
+    });
+    const result = await discoverProjectRoot(nested, { warnOnFallthrough: true, stderr });
+    expect(resolve(result)).toBe(resolve(nested));
+    const text = Buffer.concat(chunks).toString('utf8');
+    expect(text).toMatch(/no \.git\/ or \.comprehension\/ ancestor/);
+  });
+
+  it('warnOnFallthrough default (false) does not write to stderr', async () => {
+    const nested = join(tmp, 'orphan-silent');
+    await mkdir(nested, { recursive: true });
+    const chunks: Buffer[] = [];
+    const { Writable } = await import('node:stream');
+    const stderr = new Writable({
+      write(chunk, _enc, cb) { chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk); cb(); },
+    });
+    // Cast to allow passing stderr without opting in.
+    await discoverProjectRoot(nested, { stderr });
+    expect(Buffer.concat(chunks).toString('utf8')).toBe('');
+  });
 });
 
 describe('findClaudeCodeProjectHash', () => {

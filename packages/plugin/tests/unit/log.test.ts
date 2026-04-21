@@ -53,4 +53,42 @@ describe('log', () => {
   it('latestFailureTimestamp returns null when no failures', async () => {
     expect(await latestFailureTimestamp(tmp)).toBeNull();
   });
+
+  it('appendLogEvent round-trips backfill_batch events', async () => {
+    const ev: LogEvent = {
+      kind: 'backfill_batch',
+      session_id: '_batch',
+      timestamp: '2026-04-22T09:00:00Z',
+      analyzed: 4,
+      failed: 1,
+      total_cost_usd: 0.1234,
+      elapsed_ms: 12000,
+    };
+    await appendLogEvent(tmp, '_batch', ev);
+    const events = await readLogEvents(tmp, '_batch');
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual(ev);
+  });
+
+  it('latestFailureTimestamp ignores backfill_batch events', async () => {
+    await appendLogEvent(tmp, '_batch', {
+      kind: 'backfill_batch',
+      session_id: '_batch',
+      timestamp: '2099-01-01T00:00:00Z',
+      analyzed: 0,
+      failed: 99,
+      total_cost_usd: 0,
+      elapsed_ms: 0,
+    });
+    await appendLogEvent(tmp, 'sess-x', {
+      kind: 'worker_failure',
+      session_id: 'sess-x',
+      timestamp: '2026-04-20T10:00:00Z',
+      error_name: 'E',
+      message: 'm',
+      elapsed_ms: 1,
+    });
+    const ts = await latestFailureTimestamp(tmp);
+    expect(ts).toBe('2026-04-20T10:00:00Z');
+  });
 });

@@ -1,4 +1,4 @@
-import { readdir, stat, writeFile, mkdir } from 'node:fs/promises';
+import { readdir, stat, writeFile, mkdir, readFile, utimes } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import type { Command } from 'commander';
 import { readManifest } from '@fos/core';
@@ -26,12 +26,15 @@ export interface StatusOpts {
 
 interface RecentRun {
   session_id: string;
-  outcome: 'success' | 'failure' | 'running' | 'unknown';
+  outcome: 'success' | 'failure' | 'running' | 'unknown' | 'backfill';
   timestamp: string;
   concept_count?: number;
   unknown_count?: number;
   error_name?: string;
   message?: string;
+  analyzed?: number;
+  failed?: number;
+  total_cost_usd?: number;
 }
 
 async function countSessions(projectRoot: string): Promise<{ analyzed: number; failed: number }> {
@@ -48,7 +51,6 @@ async function countSessions(projectRoot: string): Promise<{ analyzed: number; f
 
 async function pendingCount(projectRoot: string): Promise<number> {
   try {
-    const { readFile } = await import('node:fs/promises');
     const raw = await readFile(pendingQueuePath(projectRoot), 'utf8');
     const parsed = JSON.parse(raw) as { queue: unknown[] };
     return parsed.queue.length;
@@ -72,7 +74,7 @@ async function latestWorkerRuns(projectRoot: string, limit: number): Promise<Rec
     if (events.length === 0) continue;
     const terminal = [...events]
       .reverse()
-      .find((e) => e.kind === 'worker_success' || e.kind === 'worker_failure');
+      .find((e) => e.kind === 'worker_success' || e.kind === 'worker_failure' || e.kind === 'backfill_batch');
     const anchor = terminal ?? events[events.length - 1]!;
     if (terminal?.kind === 'worker_success') {
       runs.push({
@@ -89,6 +91,15 @@ async function latestWorkerRuns(projectRoot: string, limit: number): Promise<Rec
         timestamp: terminal.timestamp,
         error_name: terminal.error_name,
         message: terminal.message,
+      });
+    } else if (terminal?.kind === 'backfill_batch') {
+      runs.push({
+        session_id: sessionId,
+        outcome: 'backfill',
+        timestamp: terminal.timestamp,
+        analyzed: terminal.analyzed,
+        failed: terminal.failed,
+        total_cost_usd: terminal.total_cost_usd,
       });
     } else {
       runs.push({
@@ -130,7 +141,6 @@ export async function runStatusSubcommand(
     await mkdir(dirname(ackedAtPath(projectRoot)), { recursive: true });
     await writeFile(ackedAtPath(projectRoot), '', 'utf8');
     try {
-      const { utimes } = await import('node:fs/promises');
       await utimes(ackedAtPath(projectRoot), now, now);
     } catch {
       /* non-fatal */
@@ -173,6 +183,12 @@ export async function runStatusSubcommand(
     lines.push('    (none)');
   } else {
     for (const r of recent) {
+      if (r.outcome === 'backfill') {
+        lines.push(
+          `    BACKFILL @ ${r.timestamp} analyzed=${r.analyzed} failed=${r.failed} cost_usd=${(r.total_cost_usd ?? 0).toFixed(4)}`,
+        );
+        continue;
+      }
       const base = `    ${r.outcome.toUpperCase()} ${r.session_id} @ ${r.timestamp}`;
       if (r.outcome === 'success') {
         lines.push(`${base} concepts=${r.concept_count} unknowns=${r.unknown_count}`);
