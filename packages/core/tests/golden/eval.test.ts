@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { ExpectedSchema } from './expected-schema.js';
 import { scoreCase, aggregate, type CaseMetrics } from './metrics.js';
+import { maybeSnapshot } from './snapshot.js';
 import { analyzeSession, RefinerOutputSchema, type InvokeFn } from '../../src/index.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -97,10 +98,16 @@ describe('golden corpus eval', () => {
 
   it('aggregate report + baseline regression check', async () => {
     const agg = aggregate(caseMetrics);
+    await maybeSnapshot(caseMetrics, agg);
     const baseline = await loadBaseline();
 
     console.log('\n=== eval aggregate ===');
     console.log(JSON.stringify(agg, null, 2));
+
+    if (process.env['FOS_EVAL_MODE'] === 'snapshot') {
+      // In snapshot mode, baseline was just written; skip regression check.
+      return;
+    }
 
     if (!baseline) {
       console.log('(no baseline.json yet — run `pnpm eval --snapshot` to create one)');

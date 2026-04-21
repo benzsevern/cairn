@@ -14,7 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
-    "eval": "vitest run tests/golden"
+    "eval": "node tests/golden/run-eval.mjs"
   },
   "dependencies": {
     "commander": "^12.0.0",
