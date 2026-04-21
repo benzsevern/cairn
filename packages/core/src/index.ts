@@ -10,3 +10,8 @@ export { backfill, discoverSessions } from './backfill.js';
 export type { BackfillArgs, DiscoveredSession } from './backfill.js';
 export { loadRefinerPrompt } from './refiner/load-prompt.js';
 export { SHIPPED_REFINER_VERSION } from './refiner/load-prompt.js';
+export { runInit } from './cli/commands/init.js';
+export type { InitArgs } from './cli/commands/init.js';
+export { estimateCost, estimateTokens } from './cli/cost.js';
+export { readManifest, writeManifest } from './writer/manifest.js';
+export type { Manifest } from './writer/manifest.js';
