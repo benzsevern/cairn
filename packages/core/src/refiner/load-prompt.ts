@@ -17,37 +17,43 @@ export class RefinerPromptNotFoundError extends Error {
 }
 
 /**
- * Locate the `@fos/core` package root by walking upward from the current
- * module's directory until a `package.json` with `name: '@fos/core'` is found.
+ * Locate the shipped refiner prompt. Tries three strategies in order:
  *
- * This is robust to bundling: in dev, this file lives at
- * `packages/core/src/refiner/load-prompt.ts` and walks up to
- * `packages/core/package.json`. Post-build, tsup inlines this file into
- * `packages/core/dist/index.js`, so the walk starts from `dist/` and still
- * finds `packages/core/package.json` one level up. In an installed package
- * (e.g. `node_modules/@fos/core/dist/index.js`), it finds the installed
- * package's own `package.json`.
+ * 1. A `prompts/refiner-v1.md` file at the module's own directory or any
+ *    ancestor — robust in both dev (walks up from src/) and in bundled
+ *    installs where the prompt is copied sibling-to-bundle (e.g. the plugin's
+ *    `dist/prompts/`, or core's `dist/prompts/` or `prompts/`).
+ * 2. A `package.json` with `name: '@fos/core'` or `name: '@fos/plugin'` — the
+ *    packages that ship the prompt — taking `<pkgRoot>/prompts/refiner-v1.md`.
+ * 3. Give up with a typed error enumerating every searched path.
  */
-function findCorePackageRoot(startDir: string): string {
+function findShippedPrompt(startDir: string): string {
   let dir = startDir;
   const searched: string[] = [];
   const { root } = parsePath(dir);
   while (true) {
-    const candidate = resolve(dir, 'package.json');
-    searched.push(candidate);
-    if (existsSync(candidate)) {
+    const directCandidate = resolve(dir, 'prompts', 'refiner-v1.md');
+    searched.push(directCandidate);
+    if (existsSync(directCandidate)) return directCandidate;
+
+    const pkgPath = resolve(dir, 'package.json');
+    searched.push(pkgPath);
+    if (existsSync(pkgPath)) {
       try {
-        const pkg = JSON.parse(readFileSync(candidate, 'utf8')) as { name?: string };
-        if (pkg.name === '@fos/core') {
-          return dir;
+        const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { name?: string };
+        if (pkg.name === '@fos/core' || pkg.name === '@fos/plugin') {
+          const candidate = resolve(dir, 'prompts', 'refiner-v1.md');
+          searched.push(candidate);
+          if (existsSync(candidate)) return candidate;
         }
       } catch {
         // ignore malformed package.json and keep walking
       }
     }
+
     if (dir === root) {
       throw new RefinerPromptNotFoundError(
-        `Unable to locate @fos/core package root starting from ${startDir}`,
+        `Unable to locate refiner prompt starting from ${startDir}`,
         searched,
       );
     }
@@ -57,8 +63,7 @@ function findCorePackageRoot(startDir: string): string {
 
 function shippedPromptPath(): string {
   const here = dirname(fileURLToPath(import.meta.url));
-  const pkgRoot = findCorePackageRoot(here);
-  return resolve(pkgRoot, 'prompts', 'refiner-v1.md');
+  return findShippedPrompt(here);
 }
 
 export interface LoadedPrompt {

@@ -5,7 +5,8 @@
   "type": "module",
   "files": ["dist", "plugin.json", "install"],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && pnpm run copy-assets",
+    "copy-assets": "node -e \"import('node:fs/promises').then(async fs=>{await fs.mkdir('dist/prompts',{recursive:true});await fs.copyFile('../core/prompts/refiner-v1.md','dist/prompts/refiner-v1.md');await fs.mkdir('dist/viewer',{recursive:true});await fs.copyFile('../core/dist/viewer/template.html','dist/viewer/template.html');console.log('assets copied');})\"",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
