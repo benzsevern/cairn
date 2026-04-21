@@ -1,5 +1,6 @@
 export const VERSION = '0.0.1';
 export * from './types.js';
+export * from './paths.js';
 export * from './refiner/index.js';
 export { analyzeSession } from './analyze-session.js';
 export type { AnalyzeSessionArgs } from './analyze-session.js';

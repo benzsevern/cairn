@@ -1,3 +1,4 @@
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 export function comprehensionDir(projectRoot: string): string {
@@ -46,4 +47,32 @@ export function overridePromptPath(projectRoot: string): string {
 
 export function failedStubPath(projectRoot: string, sessionId: string, isoDatePrefix: string): string {
   return join(sessionsDir(projectRoot), `${isoDatePrefix}-${sessionId}.failed.json`);
+}
+
+export function consentPath(projectRoot: string): string {
+  return join(fosDir(projectRoot), 'consent.json');
+}
+
+export function analysisLockPath(projectRoot: string): string {
+  return join(fosDir(projectRoot), 'analysis.lock');
+}
+
+export function pendingQueuePath(projectRoot: string): string {
+  return join(fosDir(projectRoot), 'pending.json');
+}
+
+export function logsDir(projectRoot: string): string {
+  return join(fosDir(projectRoot), 'logs');
+}
+
+export function logFilePath(projectRoot: string, sessionId: string): string {
+  return join(logsDir(projectRoot), `${sessionId}.log`);
+}
+
+export function ackedAtPath(projectRoot: string): string {
+  return join(fosDir(projectRoot), 'acked_at');
+}
+
+export function installAckPath(): string {
+  return join(homedir(), '.claude', 'fos-install-ack');
 }
