@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtemp, rm, stat, mkdir, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, stat, mkdir, writeFile, access } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Writable } from 'node:stream';
@@ -122,6 +122,54 @@ describe('comprehend-init subcommand', () => {
     expect(code).toBe(0);
     expect(runInitImpl).not.toHaveBeenCalled();
     expect(out.text()).toMatch(/already opted in/);
+  });
+
+  it('--show-consent includes consent_required_text when install_ack missing', async () => {
+    const out = capture();
+    const code = await runInitSubcommand(
+      { projectRoot: tmp, showConsent: true },
+      { ...baseDeps(), stdout: out.stream, stderr: capture().stream },
+    );
+    expect(code).toBe(0);
+    const json = JSON.parse(out.text().trim()) as Record<string, unknown>;
+    expect(json['install_ack']).toBe(false);
+    expect(typeof json['consent_required_text']).toBe('string');
+    expect(json['consent_required_text']).toContain('docs/user/data-flow.md');
+  });
+
+  it('--show-consent returns null consent_required_text when ack present', async () => {
+    await mkdir(join(home, '.claude'), { recursive: true });
+    await writeFile(join(home, '.claude', 'fos-install-ack'), '', 'utf8');
+    const out = capture();
+    const code = await runInitSubcommand(
+      { projectRoot: tmp, showConsent: true },
+      { ...baseDeps(), stdout: out.stream, stderr: capture().stream },
+    );
+    expect(code).toBe(0);
+    const json = JSON.parse(out.text().trim()) as Record<string, unknown>;
+    expect(json['install_ack']).toBe(true);
+    expect(json['consent_required_text']).toBeNull();
+  });
+
+  it('--accept --accept-machine-consent touches ack file and writes consent', async () => {
+    const runInitImpl = vi.fn(async () => {});
+    const code = await runInitSubcommand(
+      {
+        projectRoot: tmp,
+        accept: true,
+        acceptMachineConsent: true,
+        skipBackfill: true,
+      },
+      {
+        ...baseDeps(),
+        runInitImpl,
+        stdout: capture().stream,
+        stderr: capture().stream,
+      },
+    );
+    expect(code).toBe(0);
+    await expect(access(join(home, '.claude', 'fos-install-ack'))).resolves.toBeUndefined();
+    await expect(stat(consentPath(tmp))).resolves.toBeDefined();
   });
 
   it('bare invocation prints usage and exits 2', async () => {
