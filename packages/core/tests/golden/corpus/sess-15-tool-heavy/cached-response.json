@@ -1,0 +1,21 @@
+{
+  "concepts": [
+    {
+      "slug": "date-library-migration",
+      "name": "Migrate date handling from moment to date-fns",
+      "kind": "introduced",
+      "summary": "Replace moment with date-fns across src/utils/dates.ts, src/reports/monthly.ts, src/schedule/cron.ts, and src/billing/invoice.ts, then drop moment from package.json.",
+      "reasoning": [
+        "Chose date-fns because it is tree-shakeable (per-function imports reduce bundle size) and actively maintained.",
+        "Rejected staying on moment because the library is in maintenance mode and its non-tree-shakeable monolithic import inflates the bundle.",
+        "Migrated call sites to the equivalent date-fns functions (format, startOfMonth, endOfMonth, addDays, parseISO, differenceInDays) preserving the existing behavior.",
+        "Verified the migration with pnpm typecheck before finishing."
+      ],
+      "depends_on": [],
+      "files": ["src/utils/dates.ts", "src/reports/monthly.ts", "src/schedule/cron.ts", "src/billing/invoice.ts"],
+      "transcript_refs": [1, 3, 5, 7, 9, 11, 13],
+      "confidence": "high"
+    }
+  ],
+  "unknowns": []
+}
