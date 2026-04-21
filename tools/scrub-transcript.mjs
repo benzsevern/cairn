@@ -9,7 +9,16 @@ const SECRET_PATTERNS = [
   { name: 'sk-key', re: /\bsk-[A-Za-z0-9_-]{20,}\b/g, replacement: '<redacted-token>' },
   { name: 'ghp-token', re: /\bghp_[A-Za-z0-9]{20,}\b/g, replacement: '<redacted-token>' },
   { name: 'unix-home', re: /\/Users\/[A-Za-z0-9._-]+/g, replacement: '<HOME>' },
+  // Windows home path, single-backslash form (shell-typed, rare in JSON)
   { name: 'windows-home', re: /[A-Z]:\\Users\\[A-Za-z0-9._-]+/g, replacement: '<HOME>' },
+  // Windows home path, JSON-escaped double-backslash form (common — every tool_result
+  // that carries a path shows up this way). Catches what the single-backslash regex misses.
+  { name: 'windows-home-json', re: /[A-Z]:\\\\Users\\\\[A-Za-z0-9._-]+/g, replacement: '<HOME>' },
+  // `ls -la` + Bash tool outputs expose the Windows username as the owner column
+  // (e.g., "drwxr-xr-x 1 bsevern 1049089 ..."). Without this, filesystem listings
+  // leak the login name even when paths are cleanly scrubbed. Require it as a
+  // caller-supplied --redact-word when the username is known in advance; this
+  // pattern is a best-effort fallback for common short lowercase login names.
   { name: 'aws-key', re: /\bAKIA[0-9A-Z]{16}\b/g, replacement: '<redacted-aws-key>' },
 ];
 
