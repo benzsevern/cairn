@@ -14,6 +14,17 @@ if (flags.includes('--snapshot')) {
   process.exit(0);
 }
 
+if (flags.includes('--snapshot-delta')) {
+  process.env['FOS_EVAL_MODE'] = 'snapshot-delta';
+}
+if (flags.includes('--real')) {
+  process.env['FOS_EVAL_REAL'] = '1';
+}
+if (flags.includes('--api')) {
+  process.env['FOS_EVAL_PROVIDER'] = 'api';
+  process.env['FOS_EVAL_REAL'] = '1';
+}
+
 let tmpBaseline = null;
 
 if (flags.includes('--against')) {
