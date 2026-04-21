@@ -3,6 +3,7 @@
   "hooks": {
     "Stop": [
       {
+        "matcher": ".*",
         "hooks": [
           {
             "type": "command",
@@ -15,6 +16,7 @@
     ],
     "SessionStart": [
       {
+        "matcher": "startup|resume|clear|compact",
         "hooks": [
           {
             "type": "command",
