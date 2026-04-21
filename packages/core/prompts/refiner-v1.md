@@ -76,7 +76,23 @@ Respond with a **single JSON object** and NOTHING ELSE. No preamble, no code fen
 
 ### Pure-design / no-implementation sessions
 
-If the session only *discusses* an architecture without touching files (no tool-use edits, no writes, no code changes visible in `<assistant-actions>`), do NOT emit that architecture as a concept. Design discussions that haven't been implemented go entirely into `unknowns` with a recovery prompt asking the user to confirm/implement. Exception: if the session produced a concrete, committed artifact (even a spec file), you may emit the concept at `confidence: "low"` with `files` populated from what was actually written. A concept with `files: []` and no edit actions is almost always wrong — prefer `unknowns`.
+There are two sub-cases. Distinguish them carefully — they produce different output.
+
+**Case A — substantive architectural deliberation.** The session weighs a named architectural choice (e.g., "optimistic vs pessimistic locking for the inventory hot tier", "sync vs async fan-out for the webhook dispatcher") with reasoning attached, even if no code is written. Emit ONE concept at `confidence: "low"` with `files: []`, named after the *decision subject* (`inventory-locking-strategy`, `webhook-dispatch-model`) — NOT after the alternatives considered (never `optimistic-locking`, `pessimistic-locking`, `sync-fanout` as slugs; those are generic terms). The `reasoning` captures the tradeoffs that were weighed. ALSO emit an `unknowns` entry pointing to this slug asking the user to confirm/implement.
+
+**Case B — vague mention or aspirational discussion.** The session name-drops a concept without weighing alternatives or committing to a direction. No concept emitted; route entirely to `unknowns`.
+
+If the session produced a concrete committed artifact (spec file, design doc), emit the concept at `confidence: "low"` with `files` populated from what was actually written.
+
+A concept with `files: []` and no edit actions is only correct in Case A (architectural deliberation). Otherwise prefer `unknowns`.
+
+### Slug fidelity
+
+When the transcript (user or assistant) repeatedly uses a specific noun phrase for the thing being worked on, use that phrase verbatim as the slug — do not stylistically rewrite it into a more "generic-sounding" name. If the user keeps saying "domain-aware autoconfig", the slug is `domain-aware-autoconfig`, not `auto-configure-df`. If the user says "runtime circuit breaker", the slug is `runtime-circuit-breaker`, not `circuit-breaker`. Preserving the user's framing is more important than a shorter slug.
+
+### Decomposition — one more negative example
+
+A debugging session touches 3 MCP servers (Context7, Playwright, Serena) and traces all three failures to one root cause: a corrupted npx cache directory. The correct output is ONE concept (`npx-cache-eperm-clear`), with all three servers in `files`/`reasoning` as evidence. Do NOT emit `context7-install-fix`, `playwright-install-fix`, `serena-install-fix` as three concepts — those are per-artifact splinters of a single mechanism. The slug should encode the *mechanism* (the EPERM clear), not any single server it happened to be observed in.
 
 ### Unknowns
 
