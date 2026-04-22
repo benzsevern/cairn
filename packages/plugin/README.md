@@ -86,6 +86,22 @@ pnpm --filter @fos/plugin test
 pnpm --filter @fos/plugin test:watch
 ```
 
+## Model tier recommendations
+
+The refiner prompt (`refiner-v1.md`, `SHIPPED_REFINER_VERSION = v1.1.0`) is calibrated against **Claude Sonnet 4.6** (`claude-sonnet-4-6`). This is the only tier that clears every §8.2 quality bar (concept_recall ≥ 0.90, slug_reuse_precision ≥ 0.95, reasoning_preservation ≥ 0.80, schema_valid_rate ≥ 0.99, zero forbidden-slug violations) on the 15-case golden corpus.
+
+Other tiers are supported but underperform:
+
+| Tier  | Model                         | concept_recall | reasoning_preservation | Meets §8.2 bars? |
+|-------|-------------------------------|----------------|------------------------|------------------|
+| Sonnet 4.6 (**recommended**) | `claude-sonnet-4-6`           | 0.92           | 0.87                   | ✅ Yes           |
+| Opus 4.7                     | `claude-opus-4-7`             | 0.84           | 0.78                   | ❌ No            |
+| Haiku 4.5                    | `claude-haiku-4-5-20251001`   | 0.71           | 0.66                   | ❌ No            |
+
+The prompt was iterated against Sonnet-specific failure modes (checklist phrasing, anti-pattern examples), so some of the tier gap likely reflects calibration rather than raw capability. Haiku's numbers in particular degrade gracefully rather than break: schema validity and slug reuse still hit 1.00 — it just recalls fewer concepts and preserves less reasoning substance.
+
+All `/comprehend*` commands and CLI entrypoints default to `claude-sonnet-4-6`. Override with `--model <id>` knowing the quality cost.
+
 Source layout:
 
 - `src/hooks/` — Stop + SessionStart hook entrypoints
