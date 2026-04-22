@@ -16,25 +16,27 @@ export class RefinerPromptNotFoundError extends Error {
   }
 }
 
+// v1.1.md ships first; v1.md is an archival copy of the pre-Plan-4 baseline.
+// Loader prefers v1.1 when both are present.
+const PROMPT_CANDIDATES = ['refiner-v1.1.md', 'refiner-v1.md'] as const;
+
 /**
- * Locate the shipped refiner prompt. Tries three strategies in order:
- *
- * 1. A `prompts/refiner-v1.md` file at the module's own directory or any
- *    ancestor — robust in both dev (walks up from src/) and in bundled
- *    installs where the prompt is copied sibling-to-bundle (e.g. the plugin's
- *    `dist/prompts/`, or core's `dist/prompts/` or `prompts/`).
- * 2. A `package.json` with `name: '@fos/core'` or `name: '@fos/plugin'` — the
- *    packages that ship the prompt — taking `<pkgRoot>/prompts/refiner-v1.md`.
- * 3. Give up with a typed error enumerating every searched path.
+ * Locate the shipped refiner prompt. Walks up from the module's own directory;
+ * at each level checks for a `prompts/<candidate>` file (preferring v1.1 over
+ * v1.0), then falls back to finding the `@fos/core` or `@fos/plugin`
+ * package.json and retrying relative to that root. Errors with every searched
+ * path if nothing matches.
  */
 function findShippedPrompt(startDir: string): string {
   let dir = startDir;
   const searched: string[] = [];
   const { root } = parsePath(dir);
   while (true) {
-    const directCandidate = resolve(dir, 'prompts', 'refiner-v1.md');
-    searched.push(directCandidate);
-    if (existsSync(directCandidate)) return directCandidate;
+    for (const name of PROMPT_CANDIDATES) {
+      const directCandidate = resolve(dir, 'prompts', name);
+      searched.push(directCandidate);
+      if (existsSync(directCandidate)) return directCandidate;
+    }
 
     const pkgPath = resolve(dir, 'package.json');
     searched.push(pkgPath);
@@ -42,9 +44,11 @@ function findShippedPrompt(startDir: string): string {
       try {
         const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { name?: string };
         if (pkg.name === '@fos/core' || pkg.name === '@fos/plugin') {
-          const candidate = resolve(dir, 'prompts', 'refiner-v1.md');
-          searched.push(candidate);
-          if (existsSync(candidate)) return candidate;
+          for (const name of PROMPT_CANDIDATES) {
+            const candidate = resolve(dir, 'prompts', name);
+            searched.push(candidate);
+            if (existsSync(candidate)) return candidate;
+          }
         }
       } catch {
         // ignore malformed package.json and keep walking

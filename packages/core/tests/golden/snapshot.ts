@@ -40,7 +40,7 @@ export async function writeIterationDelta(args: IterationDeltaArgs): Promise<str
 export async function maybeSnapshot(cases: CaseMetrics[], agg: Aggregate): Promise<void> {
   if (process.env['FOS_EVAL_MODE'] !== 'snapshot') return;
   const here = dirname(fileURLToPath(import.meta.url));
-  const refinerPromptPath = join(here, '..', '..', 'prompts', 'refiner-v1.md');
+  const refinerPromptPath = join(here, '..', '..', 'prompts', 'refiner-v1.1.md');
   const refinerText = await readFile(refinerPromptPath, 'utf8');
   const { createHash } = await import('node:crypto');
   const refinerHash = `sha256:${createHash('sha256').update(refinerText).digest('hex')}`;

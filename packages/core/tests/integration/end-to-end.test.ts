@@ -130,7 +130,7 @@ describe('end-to-end pipeline', () => {
       now: () => new Date('2026-04-18T10:00:00.000Z'),
       invoke: fakeRefinerThatIntroducesFuzzy,
     });
-    expect(s1.refiner_version).toBe('v1.0.0');
+    expect(s1.refiner_version).toBe('v1.1.0');
 
     // Session 2 — refines "fuzzy-matching" (same slug, kind: refined)
     const s2 = await analyzeSession({
@@ -141,7 +141,7 @@ describe('end-to-end pipeline', () => {
       now: () => new Date('2026-04-19T10:00:00.000Z'),
       invoke: fakeRefinerThatReusesFuzzy,
     });
-    expect(s2.refiner_version).toBe('v1.0.0');
+    expect(s2.refiner_version).toBe('v1.1.0');
 
     // Rebuild
     await rebuildProjectView({
@@ -181,6 +181,6 @@ describe('end-to-end pipeline', () => {
     // manifest project_view_version incremented to 1
     const manifest = await readManifest(tmp);
     expect(manifest.project_view_version).toBe(1);
-    expect(manifest.refiner_version).toBe('v1.0.0');
+    expect(manifest.refiner_version).toBe('v1.1.0');
   });
 });

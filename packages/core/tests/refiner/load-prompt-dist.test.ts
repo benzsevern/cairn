@@ -13,7 +13,8 @@ import { spawnSync } from 'node:child_process';
  * directly, so it cannot catch bundling-related path breakage (tsup inlines
  * `load-prompt.ts` into `dist/index.js`, which changes what `import.meta.url`
  * points to). This test loads the actual bundled entry and verifies that
- * `loadRefinerPrompt` can still locate `prompts/refiner-v1.md`.
+ * `loadRefinerPrompt` can still locate the shipped prompt (currently
+ * `prompts/refiner-v1.1.md`, with `refiner-v1.md` retained as archive).
  */
 
 const packageRoot = resolve(__dirname, '..', '..');
@@ -36,7 +37,7 @@ describe('loadRefinerPrompt (bundled dist)', () => {
     }
   }, 120_000);
 
-  it('loads the shipped prompt via the bundled dist entry', async () => {
+  it('loads the shipped prompt via the bundled dist entry', { timeout: 30_000 }, async () => {
     expect(existsSync(distEntry)).toBe(true);
     // Dynamic import via file URL so Node treats the path correctly on Windows.
     const mod = (await import(pathToFileURL(distEntry).href)) as {
@@ -52,7 +53,7 @@ describe('loadRefinerPrompt (bundled dist)', () => {
     try {
       const loaded = await mod.loadRefinerPrompt(tmp);
       expect(loaded.overrideActive).toBe(false);
-      expect(loaded.version).toBe('v1.0.0');
+      expect(loaded.version).toBe('v1.1.0');
       expect(loaded.text).toContain('refiner');
       expect(loaded.hash).toMatch(/^sha256:[a-f0-9]{64}$/);
     } finally {

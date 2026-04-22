@@ -163,7 +163,7 @@ Context concept seeded by eval harness so the refiner can exercise slug reuse.
     if (process.env['FOS_EVAL_MODE'] === 'snapshot-delta') {
       const { writeIterationDelta } = await import('./snapshot.js');
       const { createHash } = await import('node:crypto');
-      const promptPath = join(here, '..', '..', 'prompts', 'refiner-v1.md');
+      const promptPath = join(here, '..', '..', 'prompts', 'refiner-v1.1.md');
       const promptText = await readFile(promptPath, 'utf8');
       const refinerHash = `sha256:${createHash('sha256').update(promptText).digest('hex')}`;
       const mode: 'cached' | 'real' = process.env['FOS_EVAL_REAL'] === '1' ? 'real' : 'cached';
