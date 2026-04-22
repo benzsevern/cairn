@@ -1,0 +1,358 @@
+{
+  "generated_at": "2026-04-22T00:30:00Z",
+  "refiner_version": "v1.1.0",
+  "refiner_prompt_hash": "sha256:fbd26ed7ca99c548ac7d2e4296335e0f49aa7b8f95adcabd111c8433ab730675",
+  "corpus_size": 15,
+  "bars_8_2": {
+    "concept_recall": 0.9,
+    "slug_reuse_precision": 0.95,
+    "reasoning_preservation": 0.8,
+    "schema_valid_rate": 0.99
+  },
+  "primary_tier": {
+    "model": "claude-sonnet-4-6",
+    "provider": "api",
+    "aggregate": {
+      "concept_recall": {
+        "p50": 1,
+        "p25": 1,
+        "mean": 0.9555555555555555
+      },
+      "slug_reuse_precision": {
+        "p50": 1,
+        "p25": 1,
+        "mean": 1,
+        "applicable_cases": 2
+      },
+      "reasoning_preservation": {
+        "p50": 1,
+        "p25": 1,
+        "mean": 0.9111111111111111
+      },
+      "schema_valid_rate": 1,
+      "forbidden_violations": 0
+    },
+    "meets_bars": {
+      "concept_recall": true,
+      "slug_reuse_precision": true,
+      "reasoning_preservation": true,
+      "schema_valid_rate": true,
+      "forbidden_violations": true
+    },
+    "per_case": [
+      {
+        "slug": "sess-01-greeting",
+        "tags": [
+          "no-concepts-expected",
+          "synthetic"
+        ],
+        "concept_recall": 1,
+        "slug_reuse_precision": null,
+        "reasoning_preservation": 1,
+        "schema_valid": true,
+        "forbidden_slug_violations": 0
+      },
+      {
+        "slug": "sess-02-fuzzy",
+        "tags": [
+          "algorithmic-choice",
+          "synthetic"
+        ],
+        "concept_recall": 1,
+        "slug_reuse_precision": null,
+        "reasoning_preservation": 1,
+        "schema_valid": true,
+        "forbidden_slug_violations": 0
+      },
+      {
+        "slug": "sess-03-refine",
+        "tags": [
+          "slug-reuse",
+          "synthetic"
+        ],
+        "concept_recall": 1,
+        "slug_reuse_precision": 1,
+        "reasoning_preservation": 1,
+        "schema_valid": true,
+        "forbidden_slug_violations": 0
+      },
+      {
+        "slug": "sess-04-terse-user",
+        "tags": [
+          "terse-user",
+          "mined",
+          "tool-heavy",
+          "bug-fix"
+        ],
+        "concept_recall": 1,
+        "slug_reuse_precision": null,
+        "reasoning_preservation": 1,
+        "schema_valid": true,
+        "forbidden_slug_violations": 0
+      },
+      {
+        "slug": "sess-05-long-session",
+        "tags": [
+          "long-session",
+          "mined",
+          "multiple-concepts"
+        ],
+        "concept_recall": 0.3333333333333333,
+        "slug_reuse_precision": null,
+        "reasoning_preservation": 0.3333333333333333,
+        "schema_valid": true,
+        "forbidden_slug_violations": 0
+      },
+      {
+        "slug": "sess-07-refactor",
+        "tags": [
+          "refactor",
+          "mined",
+          "multiple-concepts",
+          "long-session"
+        ],
+        "concept_recall": 1,
+        "slug_reuse_precision": null,
+        "reasoning_preservation": 0.8333333333333334,
+        "schema_valid": true,
+        "forbidden_slug_violations": 0
+      },
+      {
+        "slug": "sess-08-debugging",
+        "tags": [
+          "debugging",
+          "mined",
+          "bug-fix"
+        ],
+        "concept_recall": 1,
+        "slug_reuse_precision": null,
+        "reasoning_preservation": 1,
+        "schema_valid": true,
+        "forbidden_slug_violations": 0
+      },
+      {
+        "slug": "sess-09-no-concepts",
+        "tags": [
+          "no-concepts-expected",
+          "mined"
+        ],
+        "concept_recall": 1,
+        "slug_reuse_precision": null,
+        "reasoning_preservation": 1,
+        "schema_valid": true,
+        "forbidden_slug_violations": 0
+      },
+      {
+        "slug": "sess-10-conflicting-decisions",
+        "tags": [
+          "conflicting-decisions",
+          "synthetic"
+        ],
+        "concept_recall": 1,
+        "slug_reuse_precision": null,
+        "reasoning_preservation": 1,
+        "schema_valid": true,
+        "forbidden_slug_violations": 0
+      },
+      {
+        "slug": "sess-11-implicit-reasoning",
+        "tags": [
+          "implicit-reasoning",
+          "synthetic"
+        ],
+        "concept_recall": 1,
+        "slug_reuse_precision": null,
+        "reasoning_preservation": 0.5,
+        "schema_valid": true,
+        "forbidden_slug_violations": 0
+      },
+      {
+        "slug": "sess-12-abandoned-path",
+        "tags": [
+          "abandoned-path",
+          "synthetic"
+        ],
+        "concept_recall": 1,
+        "slug_reuse_precision": null,
+        "reasoning_preservation": 1,
+        "schema_valid": true,
+        "forbidden_slug_violations": 0
+      },
+      {
+        "slug": "sess-13-slug-reuse",
+        "tags": [
+          "slug-reuse",
+          "synthetic"
+        ],
+        "concept_recall": 1,
+        "slug_reuse_precision": 1,
+        "reasoning_preservation": 1,
+        "schema_valid": true,
+        "forbidden_slug_violations": 0
+      },
+      {
+        "slug": "sess-14-empty-transcript",
+        "tags": [
+          "empty-transcript",
+          "synthetic"
+        ],
+        "concept_recall": 1,
+        "slug_reuse_precision": null,
+        "reasoning_preservation": 1,
+        "schema_valid": true,
+        "forbidden_slug_violations": 0
+      },
+      {
+        "slug": "sess-15-tool-heavy",
+        "tags": [
+          "tool-heavy",
+          "synthetic"
+        ],
+        "concept_recall": 1,
+        "slug_reuse_precision": null,
+        "reasoning_preservation": 1,
+        "schema_valid": true,
+        "forbidden_slug_violations": 0
+      },
+      {
+        "slug": "sess-16-pure-narrative",
+        "tags": [
+          "pure-narrative",
+          "synthetic"
+        ],
+        "concept_recall": 1,
+        "slug_reuse_precision": null,
+        "reasoning_preservation": 1,
+        "schema_valid": true,
+        "forbidden_slug_violations": 0
+      }
+    ]
+  },
+  "per_tier": {
+    "sonnet_4_6": {
+      "provider": "api",
+      "aggregate": {
+        "concept_recall": {
+          "p50": 1,
+          "p25": 1,
+          "mean": 0.9555555555555555
+        },
+        "slug_reuse_precision": {
+          "p50": 1,
+          "p25": 1,
+          "mean": 1,
+          "applicable_cases": 2
+        },
+        "reasoning_preservation": {
+          "p50": 1,
+          "p25": 1,
+          "mean": 0.9111111111111111
+        },
+        "schema_valid_rate": 1,
+        "forbidden_violations": 0
+      },
+      "meets_bars": {
+        "concept_recall": true,
+        "slug_reuse_precision": true,
+        "reasoning_preservation": true,
+        "schema_valid_rate": true,
+        "forbidden_violations": true
+      }
+    },
+    "opus_4_7": {
+      "provider": "api",
+      "aggregate": {
+        "concept_recall": {
+          "p50": 1,
+          "p25": 1,
+          "mean": 0.8444444444444446
+        },
+        "slug_reuse_precision": {
+          "p50": 1,
+          "p25": 1,
+          "mean": 1,
+          "applicable_cases": 2
+        },
+        "reasoning_preservation": {
+          "p50": 1,
+          "p25": 0.5,
+          "mean": 0.7777777777777779
+        },
+        "schema_valid_rate": 1,
+        "forbidden_violations": 0
+      },
+      "meets_bars": {
+        "concept_recall": false,
+        "slug_reuse_precision": true,
+        "reasoning_preservation": false,
+        "schema_valid_rate": true,
+        "forbidden_violations": true
+      }
+    },
+    "haiku_4_5": {
+      "provider": "api",
+      "model": "claude-haiku-4-5-20251001",
+      "aggregate": {
+        "concept_recall": {
+          "p50": 1,
+          "p25": 0,
+          "mean": 0.711111111111111
+        },
+        "slug_reuse_precision": {
+          "p50": 1,
+          "p25": 1,
+          "mean": 1,
+          "applicable_cases": 2
+        },
+        "reasoning_preservation": {
+          "p50": 1,
+          "p25": 0,
+          "mean": 0.6611111111111111
+        },
+        "schema_valid_rate": 1,
+        "forbidden_violations": 0
+      },
+      "meets_bars": {
+        "concept_recall": false,
+        "slug_reuse_precision": true,
+        "reasoning_preservation": false,
+        "schema_valid_rate": true,
+        "forbidden_violations": true
+      }
+    }
+  },
+  "provider_divergence": {
+    "sonnet_cli": {
+      "model": "claude-sonnet-4-6",
+      "provider": "cli",
+      "aggregate": {
+        "concept_recall": {
+          "p50": 1,
+          "p25": 1,
+          "mean": 0.8666666666666667
+        },
+        "slug_reuse_precision": {
+          "p50": 1,
+          "p25": 1,
+          "mean": 1,
+          "applicable_cases": 2
+        },
+        "reasoning_preservation": {
+          "p50": 1,
+          "p25": 0.6666666666666666,
+          "mean": 0.8333333333333334
+        },
+        "schema_valid_rate": 1,
+        "forbidden_violations": 0
+      },
+      "meets_bars": {
+        "concept_recall": false,
+        "slug_reuse_precision": true,
+        "reasoning_preservation": true,
+        "schema_valid_rate": true,
+        "forbidden_violations": true
+      },
+      "note": "CLI provider (claude -p) used for production plugin/hooks. Recall -5.7pp, reasoning -4.5pp vs API \u2014 within 10% materiality threshold but CLI recall dips below 0.90 bar. Flagged as Plan-5 risk."
+    }
+  }
+}
